@@ -1,15 +1,11 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Rok")
-@ToString
+@Data
+@Table(name="rok")
 public class Rok {
 
     @Id
@@ -17,7 +13,7 @@ public class Rok {
     private Long id;
 
     @Column(nullable = false)
-    private String Naziv;
+    private String naziv;
     @Column(nullable = false)
-    private String SkolskaGodina;
+    private String skolskaGodina;
 }

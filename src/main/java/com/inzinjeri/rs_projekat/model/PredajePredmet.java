@@ -1,22 +1,22 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="PredajePredmet")
-@ToString
+@Data
+@Table(name="predajePredmet", uniqueConstraints = @UniqueConstraint(columnNames = {"profesor_id", "predmet_id"}))
 public class PredajePredmet {
 
     @Id
     @GeneratedValue(strategy=GenerationType.IDENTITY)
     private Long id;
-    @Id
-    private Long ProfesorID;
-    @Id
-    private Long PredmetID;
+
+    @ManyToOne
+    @JoinColumn(name = "profesor_id")
+    private Profesori profesor;
+
+    @ManyToOne
+    @JoinColumn(name = "predmet_id")
+    private Predmeti predmet;
 }

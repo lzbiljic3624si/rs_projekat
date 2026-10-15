@@ -1,27 +1,29 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="PrijavljeniStudenti")
-@ToString
+@Data
+@Table(name="prijavljeniStudenti", uniqueConstraints = @UniqueConstraint(columnNames = {"Student", "Termin", "Grupa"}))
 public class PrijavljeniStudenti {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "student_id")
+    private Student student;
+
+    @ManyToOne
+    @JoinColumn(name = "termin_id")
+    private Termin termin;
+
+    @ManyToOne
+    @JoinColumn(name = "grupa_id")
+    private Grupa grupa;
+
     @Column(nullable = false)
-    private Long StudentID;
-    @Column(nullable = false)
-    private Long TerminID;
-    @Column(nullable = false)
-    private Long GrupaID;
-    @Column(nullable = false)
-    private String Status;
+    private String status;
 }

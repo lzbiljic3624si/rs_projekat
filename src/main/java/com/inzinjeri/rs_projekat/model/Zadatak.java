@@ -1,15 +1,11 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Zadatak")
-@ToString
+@Data
+@Table(name="zadatak")
 public class Zadatak {
 
     @Id
@@ -17,9 +13,12 @@ public class Zadatak {
     private Long id;
 
     @Column(nullable = false)
-    private String Naziv;
+    private String naziv;
+
+    @ManyToOne
+    @JoinColumn(name = "grupa_id")
+    private Grupa grupa;
+
     @Column(nullable = false)
-    private Long GrupaID;
-    @Column(nullable = false)
-    private String RepoPutanja;
+    private String repoPutanja;
 }

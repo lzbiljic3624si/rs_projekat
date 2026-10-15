@@ -1,18 +1,14 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Termin")
-@ToString
+@Data
+@Table(name="termin")
 public class Termin {
 
     @Id
@@ -20,15 +16,21 @@ public class Termin {
     private Long id;
 
     @Column(nullable = false)
-    private LocalDate Datum;
+    private LocalDate datum;
     @Column(nullable = false)
-    private LocalTime VremePocetak;
+    private LocalTime vremePocetak;
     @Column(nullable = false)
-    private LocalTime VremeKraj;
-    @Column(nullable = false)
-    private Long UcionicaID;
-    @Column(nullable = false)
-    private Long PredmetID;
-    @Column(nullable = false)
-    private Long RokID;
+    private LocalTime vremeKraj;
+
+    @ManyToOne
+    @JoinColumn(name = "ucionica_id")
+    private Ucionica ucionica;
+
+    @ManyToOne
+    @JoinColumn(name = "predmet_id")
+    private Predmeti predmet;
+
+    @ManyToOne
+    @JoinColumn(name = "rok_id")
+    private Rok rok;
 }

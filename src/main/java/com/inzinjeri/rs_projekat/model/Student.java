@@ -1,15 +1,11 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Student")
-@ToString
+@Data
+@Table(name="student")
 public class Student {
 
     @Id
@@ -17,17 +13,17 @@ public class Student {
     private Long id;
 
     @Column(nullable = false)
-    private String Smer;
+    private String smer;
     @Column(nullable = false)
-    private String Ime;
+    private String ime;
     @Column(nullable = false)
-    private String Prezime;
+    private String prezime;
     @Column(nullable = false, unique = true)
-    private String BrIndeksa;
+    private String brIndeksa;
     @Column(nullable = false)
-    private Integer GodUpisa;
+    private Integer godUpisa;
     @Column(nullable = false, unique = true)
-    private String Email;
+    private String email;
     @Column(nullable = false)
-    private String PasswordHash;
+    private String passwordHash;
 }

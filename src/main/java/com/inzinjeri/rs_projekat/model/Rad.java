@@ -1,31 +1,32 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 import java.time.LocalDateTime;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Rad")
-@ToString
+@Data
+@Table(name="rad")
 public class Rad {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
+    @ManyToOne
+    @JoinColumn(name = "student")
+    private Student student;
+
+    @ManyToOne
+    @JoinColumn(name = "zadatak_id")
+    private Zadatak zadatak;
+
+    private LocalDateTime vremePreuzimanja;
+    private LocalDateTime vremePredaje;
+    private String repoPutanjaResenja;
+    private Double poeni;
+
     @Column(nullable = false)
-    private Long PrijavaID;
-    @Column(nullable = false)
-    private Long ZadatakID;
-    private LocalDateTime VremePreuzimanja;
-    private LocalDateTime VremePredaje;
-    private String RepoPutanjaResenja;
-    private Double Poeni;
-    @Column(nullable = false)
-    private String Status;
+    private String status;
 }

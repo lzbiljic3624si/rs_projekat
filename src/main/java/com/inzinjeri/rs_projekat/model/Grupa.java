@@ -1,15 +1,11 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Grupa")
-@ToString
+@Data
+@Table(name="grupa")
 public class Grupa {
 
     @Id
@@ -17,7 +13,9 @@ public class Grupa {
     private Long id;
 
     @Column(nullable = false)
-    private String Naziv;
-    @Column(nullable = false)
-    private Long TerminID;
+    private String naziv;
+
+    @ManyToOne
+    @JoinColumn(name = "termin_id") //Ovako odredjujemo kako ce se kolona sacuvati u tabeli
+    private Termin termin;
 }

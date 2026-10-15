@@ -1,16 +1,11 @@
 package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.Data;
 
 @Entity
-@Getter
-@Setter
-@Table(name="Profesori")
-@ToString
-
+@Data
+@Table(name="profesori")
 public class Profesori {
 
     @Id
@@ -18,14 +13,14 @@ public class Profesori {
     private Long id;
 
     @Column(nullable = false)
-    private String Ime;
+    private String ime;
 
     @Column(nullable = false)
-    private String Prezime;
+    private String prezime;
 
     @Column(nullable = false, unique = true)
-    private String Email;
+    private String email;
 
     @Column(nullable = false)
-    private String PasswordHash;
+    private String passwordHash;
 }
