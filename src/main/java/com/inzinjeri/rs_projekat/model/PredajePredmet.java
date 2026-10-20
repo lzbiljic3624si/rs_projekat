@@ -14,9 +14,9 @@ public class PredajePredmet {
 
     @ManyToOne
     @JoinColumn(name = "profesor_id")
-    private Profesori profesor;
+    private Profesor profesor;
 
     @ManyToOne
     @JoinColumn(name = "predmet_id")
-    private Predmeti predmet;
+    private Predmet predmet;
 }

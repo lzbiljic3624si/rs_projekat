@@ -28,7 +28,7 @@ public class Termin {
 
     @ManyToOne
     @JoinColumn(name = "predmet_id")
-    private Predmeti predmet;
+    private Predmet predmet;
 
     @ManyToOne
     @JoinColumn(name = "rok_id")

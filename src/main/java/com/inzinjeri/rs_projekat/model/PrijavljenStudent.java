@@ -5,8 +5,8 @@ import lombok.Data;
 
 @Entity
 @Data
-@Table(name="prijavljeniStudenti", uniqueConstraints = @UniqueConstraint(columnNames = {"Student", "Termin", "Grupa"}))
-public class PrijavljeniStudenti {
+@Table(name="prijavljenStudent", uniqueConstraints = @UniqueConstraint(columnNames = {"Student", "Termin", "Grupa"}))
+public class PrijavljenStudent {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
