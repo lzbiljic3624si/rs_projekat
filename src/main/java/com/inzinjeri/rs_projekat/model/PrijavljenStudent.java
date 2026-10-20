@@ -17,10 +17,6 @@ public class PrijavljenStudent {
     private Student student;
 
     @ManyToOne
-    @JoinColumn(name = "termin_id")
-    private Termin termin;
-
-    @ManyToOne
     @JoinColumn(name = "grupa_id")
     private Grupa grupa;
 
