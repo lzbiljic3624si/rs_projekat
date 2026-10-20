@@ -13,5 +13,5 @@ public class Ucionica {
     private Long id;
 
     @Column(nullable = false, unique = true)
-    private String Naziv;
+    private String naziv;
 }
