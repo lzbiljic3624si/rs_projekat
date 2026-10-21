@@ -4,6 +4,23 @@ TODO: Videti cemu sluzi ParseUtils i kako to da iskoristimo za index i email Stu
 
 TODO: Odraditi EntityMappers za responses
 
+POTENCIJALNE PROMENE REQUESTOVA
+
+- RokRequest.java (/C:/Users/PC/OneDrive/Desktop/Projekat razvoj softvera/rs_projekat/src/main/java/com/inzinjeri/rs_projekat/controllers/request/RokRequest.java:12) ima godinaUpisa, a model Rok ima skolskaGodina. To izgleda kao greška u nazivu.
+- StudentRequest i ProfesorRequest zahtevaju password. Dobri su za kreiranje naloga, ali nisu pogodni za običnu izmenu profila ako korisnik tada ne menja lozinku.
+- TerminRequest i PredajePredmetRequest povezuju postojeće zapise preko naziva i emaila. ID-jevi bi bili jednostavniji i manje dvosmisleni, kao što već radi GrupaRequest sa terminId.
+
+CONTROLLERI
+
+Za početak bih ih grupisao po funkcijama:
+
+- RasporedController — rokovi, termini, učionice i grupe
+- PrijavaController — prijavljivanje studenta u grupu
+- ZadatakController — zadaci, predaja i ocenjivanje radova
+- PredmetController — predmeti i profesori koji ih predaju
+
+AuthController dodaješ ako pravite prijavu korisnika. Posebni kontroleri za Student, Profesor, Ucionica i ostale modele trebaju tek ako za njih imate zasebne korisničke operacije.
+
 
 TODO: Kako hashovati password - to nam treba u Request
 
