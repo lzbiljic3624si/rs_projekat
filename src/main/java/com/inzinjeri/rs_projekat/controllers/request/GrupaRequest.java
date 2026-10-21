@@ -8,10 +8,6 @@ import lombok.Data;
 public class GrupaRequest {
     @NotBlank
     private String naziv;
-    @NotBlank
-    private String nazivPredmeta;
-    @NotBlank
-    private String nazivRoka;
-    @NotBlank
-    private String termin;
+    @NotNull
+    private Long terminId;
 }
