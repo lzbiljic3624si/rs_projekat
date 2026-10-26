@@ -19,6 +19,6 @@ public class Zadatak {
     @JoinColumn(name = "grupa_id")
     private Grupa grupa;
 
-    @Column(nullable = false)
+    @Column(nullable = false, unique = true)
     private String repoPutanja;
 }
