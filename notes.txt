@@ -1,5 +1,8 @@
+
+
+
+
 TODO: Proveriti da li da dodajemo ENUM-e u statuse
-TODO: Kako dodati VREME (vremePreuzimanja i vremePredaje i sl.) zbog vremena u RadResponse.java TerminResponse.java
 TODO: Videti cemu sluzi ParseUtils i kako to da iskoristimo za index i email StudentResponse.java => uz to dodati i vremerRada za RadResponse.java
 
 TODO: Odraditi EntityMappers za responses

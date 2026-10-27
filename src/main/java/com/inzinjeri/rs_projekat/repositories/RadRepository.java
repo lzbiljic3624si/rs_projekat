@@ -12,4 +12,10 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
     List<Rad> getRadByStudentEmail(
             @Param("emailStudenta") String emailStudenta
     );
+
+    // Da li ovaj student već ima rad za ovaj zadatak?
+    boolean existsByStudent_IdAndZadatak_Id(Long studentId, Long zadatakId);
+
+    @Query("select r from Rad r where r.zadatak.grupa.termin.predmet.id = :predmetId and r.status = :status")
+    List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") String status);
 }

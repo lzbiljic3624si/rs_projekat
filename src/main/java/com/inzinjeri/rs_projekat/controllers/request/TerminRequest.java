@@ -1,7 +1,6 @@
 package com.inzinjeri.rs_projekat.controllers.request;
 
 import jakarta.validation.constraints.FutureOrPresent;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -17,10 +16,10 @@ public class TerminRequest {
     private LocalTime vremePocetak;
     @NotNull
     private LocalTime vremeKraja;
-    @NotBlank
-    private String nazivUcionice;
-    @NotBlank
-    private String nazivPredmeta;
-    @NotBlank
-    private String nazivRoka;
+    @NotNull
+    private Long ucionicaId;
+    @NotNull
+    private Long predmetId;
+    @NotNull
+    private Long rokId;
 }

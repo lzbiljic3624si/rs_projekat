@@ -9,5 +9,5 @@ public class RokRequest {
     @NotBlank
     private String naziv;
     @NotNull
-    private Integer godinaUpisa;
+    private Integer skolskaGodina;
 }

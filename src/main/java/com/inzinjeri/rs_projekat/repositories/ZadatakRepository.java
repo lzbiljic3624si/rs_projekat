@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface ZadatakRepository extends JpaRepository<Zadatak, Long> {
 
+    boolean existsByRepoPutanja(String repoPutanja);
+
     @Query("SELECT z FROM Zadatak z WHERE z.naziv = :naziv")
     Optional<Zadatak> pronadjiPoNazivu(@Param("naziv") String naziv);
 
