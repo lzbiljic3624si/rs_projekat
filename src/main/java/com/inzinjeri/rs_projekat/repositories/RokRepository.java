@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface RokRepository extends JpaRepository<Rok, Long> {
 
+    boolean existsByNazivAndSkolskaGodina(String naziv, Integer skolskaGodina);
+
     @Query("SELECT r FROM Rok r WHERE r.naziv = :naziv")
     Optional<Rok> pronadjiPoNazivu(@Param("naziv") String naziv);
 }

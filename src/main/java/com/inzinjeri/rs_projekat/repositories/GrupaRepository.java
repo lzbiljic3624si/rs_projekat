@@ -9,6 +9,8 @@ import java.util.List;
 
 public interface GrupaRepository extends JpaRepository<Grupa, Long> {
 
+    boolean existsByNaziv(String naziv);
+
     @Query("select g from Grupa g where g.termin.id = :idTermina")
     List<Grupa> getGrupeZaTermin(@Param("idTermina") Long idTermina);
 }

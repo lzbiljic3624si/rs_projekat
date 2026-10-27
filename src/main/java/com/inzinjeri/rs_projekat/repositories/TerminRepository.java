@@ -6,9 +6,14 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public interface TerminRepository extends JpaRepository<Termin, Long> {
+
+    @Query("select count(t) > 0 from Termin t where t.ucionica.id = :ucionicaId and t.datum = :datum and t.vremePocetak < :kraj and t.vremeKraj > :pocetak")
+    boolean postojiPreklapanje(@Param("ucionicaId") Long ucionicaId, @Param("datum") LocalDate datum,
+                               @Param("pocetak") LocalTime pocetak, @Param("kraj") LocalTime kraj);
 
     @Query("SELECT t FROM Termin t WHERE t.datum = :datum")
     List<Termin> pronadjiPoDatumu(@Param("datum") LocalDate datum);

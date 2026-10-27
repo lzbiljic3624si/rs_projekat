@@ -6,5 +6,5 @@ import lombok.Data;
 public class RokResponse {
     private Long id;
     private String naziv;
-    private String skolskaGodina;
+    private Integer skolskaGodina;
 }
