@@ -1,6 +1,6 @@
 
 
-
+!PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo dva mpetrovic
 
 TODO: Proveriti da li da dodajemo ENUM-e u statuse
 TODO: Videti cemu sluzi ParseUtils i kako to da iskoristimo za index i email StudentResponse.java => uz to dodati i vremerRada za RadResponse.java

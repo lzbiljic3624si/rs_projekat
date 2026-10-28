@@ -70,6 +70,7 @@ public final class EntityMappers {
     }
 
     public static PrijavljenStudentResponse toResponse(PrijavljenStudent prijava) {
+        if (prijava == null) return null;
         PrijavljenStudentResponse response = new PrijavljenStudentResponse();
         response.setId(prijava.getId());
         response.setStudent(toResponse(prijava.getStudent()));
@@ -79,11 +80,45 @@ public final class EntityMappers {
     }
 
     public static ZadatakResponse toResponse(Zadatak zadatak) {
+        if (zadatak == null) return null;
         ZadatakResponse response = new ZadatakResponse();
         response.setId(zadatak.getId());
         response.setNaziv(zadatak.getNaziv());
         response.setGrupa(toResponse(zadatak.getGrupa()));
         response.setRepoPutanja(zadatak.getRepoPutanja());
+        return response;
+    }
+
+    public static RadResponse toResponse(Rad rad) {
+        if (rad == null) return null;
+        RadResponse response = new RadResponse();
+        response.setId(rad.getId());
+        response.setStudent(toResponse(rad.getStudent()));
+        response.setZadatak(toResponse(rad.getZadatak()));
+        response.setRepoPutanjaResenja(rad.getRepoPutanjaResenja());
+        response.setPoeni(rad.getPoeni());
+        response.setStatus(rad.getStatus());
+        response.setVremePreuzimanja(rad.getVremePreuzimanja());
+        response.setVremePredaje(rad.getVremePredaje());
+        return response;
+    }
+
+    public static ProfesorResponse toResponse(Profesor profesor) {
+        if (profesor == null) return null;
+        ProfesorResponse response = new ProfesorResponse();
+        response.setId(profesor.getId());
+        response.setIme(profesor.getIme());
+        response.setPrezime(profesor.getPrezime());
+        response.setEmail(profesor.getEmail());
+        return response;
+    }
+
+    public static PredajePredmetResponse toResponse(PredajePredmet predajePredmet) {
+        if (predajePredmet == null) return null;
+        PredajePredmetResponse response = new PredajePredmetResponse();
+        response.setId(predajePredmet.getId());
+        response.setProfesor(toResponse(predajePredmet.getProfesor()));
+        response.setPredmet(toResponse(predajePredmet.getPredmet()));
         return response;
     }
 }

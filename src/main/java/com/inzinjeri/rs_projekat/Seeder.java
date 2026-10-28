@@ -2,6 +2,7 @@ package com.inzinjeri.rs_projekat;
 
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
+import com.inzinjeri.rs_projekat.utils.ParseUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -38,26 +39,38 @@ public class Seeder implements CommandLineRunner {
 
         String lozinka = passwordEncoder.encode("lozinka123");
 
+        String[] ucionice = {"RAF 1", "RAF 2", "RAF 3", "RAF 6", "Lab 1"};
         List<Ucionica> ucionicaList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Ucionica u = new Ucionica();
-            u.setNaziv("U" + i);
+            u.setNaziv(ucionice[i - 1]);
             ucionicaList.add(ucionicaRepository.save(u));
         }
 
+        // {naziv, jezik}; uslov je prethodni predmet u listi
+        String[][] predmeti = {
+                {"Uvod u programiranje", "C"},
+                {"Objektno orijentisano programiranje", "Java"},
+                {"Strukture podataka i algoritmi", "C"},
+                {"Operativni sistemi", "C"},
+                {"Razvoj softvera", "Java"},
+        };
         List<Predmet> predmetList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Predmet p = new Predmet();
-            p.setNaziv("Predmet " + i);
-            p.setJezik(i % 2 == 0 ? "Java" : "C");
-            p.setUslov(i > 1 ? "Predmet " + (i - 1) : null);
+            p.setNaziv(predmeti[i - 1][0]);
+            p.setJezik(predmeti[i - 1][1]);
+            p.setUslov(i > 1 ? predmeti[i - 2][0] : null);
             predmetList.add(predmetRepository.save(p));
         }
 
+        // skolska 2025 = 2025/26, pa su svi rokovi u 2026.
+        String[] rokovi = {"Januarski", "Februarski", "Junski", "Septembarski", "Oktobarski"};
+        int[] meseciRokova = {1, 2, 6, 9, 10};
         List<Rok> rokList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Rok r = new Rok();
-            r.setNaziv("Rok " + i);
+            r.setNaziv(rokovi[i - 1]);
             r.setSkolskaGodina(2025);
             rokList.add(rokRepository.save(r));
         }
@@ -65,7 +78,7 @@ public class Seeder implements CommandLineRunner {
         List<Termin> terminList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Termin t = new Termin();
-            t.setDatum(LocalDate.of(2026, 1, 10 + i));
+            t.setDatum(LocalDate.of(2026, meseciRokova[i - 1], 10 + i));
             t.setVremePocetak(LocalTime.of(8 + i, 0));
             t.setVremeKraj(LocalTime.of(10 + i, 0));
             t.setUcionica(ucionicaList.get(i - 1));
@@ -74,33 +87,51 @@ public class Seeder implements CommandLineRunner {
             terminList.add(terminRepository.save(t));
         }
 
+        String[] grupe = {"101", "102", "201", "202", "301"};
         List<Grupa> grupaList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Grupa g = new Grupa();
-            g.setNaziv("Grupa " + i);
+            g.setNaziv(grupe[i - 1]);
             g.setTermin(terminList.get(i - 1));
             grupaList.add(grupaRepository.save(g));
         }
 
+        // namerno imena sa dvoslovnim inicijalima (dj, lj, nj) da se vidi ParseUtils.profesorEmail
+        String[][] profesori = {
+                {"Đorđe", "Petrović"},     // djpetrovic@raf.rs
+                {"Ljiljana", "Marković"},  // ljmarkovic@raf.rs
+                {"Njegoš", "Kovačević"},   // njkovacevic@raf.rs
+                {"Milica", "Jovanović"},   // mjovanovic@raf.rs
+                {"Dragan", "Stojanović"},  // dstojanovic@raf.rs
+        };
         List<Profesor> profesorList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Profesor p = new Profesor();
-            p.setIme("Profesor" + i);
-            p.setPrezime("Prezime" + i);
-            p.setEmail("profesor" + i + "@example.com");
+            p.setIme(profesori[i - 1][0]);
+            p.setPrezime(profesori[i - 1][1]);
+            p.setEmail(ParseUtils.profesorEmail(p.getIme(), p.getPrezime()));
             p.setPasswordHash(lozinka);
             profesorList.add(profesorRepository.save(p));
         }
 
+        // {ime, prezime, smer, broj indeksa, godina upisa}
+        Object[][] studenti = {
+                {"Marko", "Nikolić", "RN", 12, 2023},     // mnikolic1223rn@raf.rs
+                {"Ana", "Đorđević", "RI", 7, 2023},       // adjordjevic723ri@raf.rs
+                {"Luka", "Šarić", "RN", 45, 2024},        // lsaric4524rn@raf.rs
+                {"Jelena", "Živković", "RI", 101, 2024},  // jzivkovic10124ri@raf.rs
+                {"Ljubica", "Popović", "RN", 3, 2022},    // ljpopovic322rn@raf.rs
+        };
         List<Student> studentList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
+            Object[] st = studenti[i - 1];
             Student s = new Student();
-            s.setIme("Student" + i);
-            s.setPrezime("Prezime" + i);
-            s.setSmer(i % 2 == 0 ? "RN" : "RI");
-            s.setBrIndeksa(i + "/2023");
-            s.setGodUpisa(2023);
-            s.setEmail("student" + i + "@example.com");
+            s.setIme((String) st[0]);
+            s.setPrezime((String) st[1]);
+            s.setSmer((String) st[2]);
+            s.setBrIndeksa(st[3] + "/" + st[4]);
+            s.setGodUpisa((Integer) st[4]);
+            s.setEmail(ParseUtils.studentEmail(s.getIme(), s.getPrezime(), (Integer) st[3], s.getGodUpisa(), s.getSmer()));
             s.setPasswordHash(lozinka);
             studentList.add(studentRepository.save(s));
         }
@@ -120,10 +151,11 @@ public class Seeder implements CommandLineRunner {
             prijavljenStudentRepository.save(ps);
         }
 
+        String[] zadaci = {"Kalkulator u C-u", "Biblioteka (OOP)", "AVL stablo", "Raspoređivač procesa", "REST API za studentsku službu"};
         List<Zadatak> zadatakList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Zadatak z = new Zadatak();
-            z.setNaziv("Zadatak " + i);
+            z.setNaziv(zadaci[i - 1]);
             z.setGrupa(grupaList.get(i - 1));
             z.setRepoPutanja("repo/zadatak" + i);
             zadatakList.add(zadatakRepository.save(z));

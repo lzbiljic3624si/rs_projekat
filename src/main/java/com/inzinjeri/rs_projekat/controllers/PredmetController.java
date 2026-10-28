@@ -4,6 +4,7 @@ import com.inzinjeri.rs_projekat.controllers.request.PredmetRequest;
 import com.inzinjeri.rs_projekat.controllers.response.PredmetResponse;
 import com.inzinjeri.rs_projekat.model.Predmet;
 import com.inzinjeri.rs_projekat.repositories.PredmetRepository;
+import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -41,22 +42,13 @@ public class PredmetController {
 
     @GetMapping("/all") // lista predmeta
     public List<PredmetResponse> all() {
-        return predmetRepository.findAll().stream().map(PredmetController::toResponse).toList();
+        return predmetRepository.findAll().stream().map(EntityMappers::toResponse).toList();
     }
 
     @GetMapping("/{id}") // jedan predmet
     public PredmetResponse byId(@PathVariable Long id) {
         return predmetRepository.findById(id)
-            .map(PredmetController::toResponse)
+            .map(EntityMappers::toResponse)
             .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Predmet ne postoji"));
-    }
-
-    private static PredmetResponse toResponse(Predmet predmet) { // Predmet je objekat koji se čuva u bazi. PredmetResponse je ono što želiš da pošalješ klijentu. toResponse prepisuje id, naziv, jezik i uslov iz jednog u drugi
-        PredmetResponse response = new PredmetResponse();
-        response.setId(predmet.getId());
-        response.setNaziv(predmet.getNaziv());
-        response.setJezik(predmet.getJezik());
-        response.setUslov(predmet.getUslov());
-        return response;
     }
 }

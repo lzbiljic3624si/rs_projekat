@@ -3,8 +3,6 @@ package com.inzinjeri.rs_projekat.controllers;
 import com.inzinjeri.rs_projekat.controllers.request.PredajaRadaRequest;
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
 import com.inzinjeri.rs_projekat.controllers.response.RadResponse;
-import com.inzinjeri.rs_projekat.controllers.response.StudentResponse;
-import com.inzinjeri.rs_projekat.controllers.response.ZadatakResponse;
 import com.inzinjeri.rs_projekat.model.Rad;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.model.Zadatak;
@@ -13,6 +11,7 @@ import com.inzinjeri.rs_projekat.repositories.PredajePredmetRepository;
 import com.inzinjeri.rs_projekat.repositories.RadRepository;
 import com.inzinjeri.rs_projekat.repositories.StudentRepository;
 import com.inzinjeri.rs_projekat.repositories.ZadatakRepository;
+import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -38,14 +37,14 @@ public class RadController {
     public List<RadResponse> moj(Authentication auth) {
         List<Rad> radovi = radRepository.getRadByStudentEmail(auth.getName());
 
-        return radovi.stream().map(RadController::toResponse).toList();
+        return radovi.stream().map(EntityMappers::toResponse).toList();
     }
 
     @GetMapping("/predmet/{predmetId}/predati")
     public List<RadResponse> predati(@PathVariable Long predmetId, Authentication auth) {
         proveriDaPredaje(auth, predmetId);
         return radRepository.findByPredmetIdAndStatus(predmetId, "PREDAT")
-                .stream().map(RadController::toResponse).toList();
+                .stream().map(EntityMappers::toResponse).toList();
     }
 
     @PostMapping("/{radId}/oceni")
@@ -71,7 +70,7 @@ public class RadController {
 
         rad.setPoeni(request.getPoeni());
         rad.setStatus("OCENJEN");
-        return toResponse(radRepository.save(rad));
+        return EntityMappers.toResponse(radRepository.save(rad));
     }
 
     @PostMapping("/{radId}/predaj")
@@ -97,7 +96,7 @@ public class RadController {
         rad.setVremePredaje(LocalDateTime.now());
         rad.setStatus("PREDAT");
 
-        return toResponse(radRepository.save(rad));
+        return EntityMappers.toResponse(radRepository.save(rad));
     }
 
     @PostMapping("/{zadatakId}/preuzmi")
@@ -149,39 +148,6 @@ public class RadController {
         if (!predaje) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Profesor ne predaje ovaj predmet");
         }
-    }
-
-    private static RadResponse toResponse(Rad rad) {
-        RadResponse response = new RadResponse();
-        response.setId(rad.getId());
-        response.setRepoPutanjaResenja(rad.getRepoPutanjaResenja());
-        response.setPoeni(rad.getPoeni());
-        response.setStatus(rad.getStatus());
-        response.setVremePreuzimanja(rad.getVremePreuzimanja());
-        response.setVremePredaje(rad.getVremePredaje());
-
-        if(rad.getStudent() != null) {
-            StudentResponse student = new StudentResponse();
-
-            student.setId(rad.getStudent().getId());
-            student.setIme(rad.getStudent().getIme());
-            student.setPrezime(rad.getStudent().getPrezime());
-            student.setBrIndeksa(rad.getStudent().getBrIndeksa());
-            student.setGodUpisa(rad.getStudent().getGodUpisa());
-            student.setEmail(rad.getStudent().getEmail());
-            response.setStudent(student);
-        }
-
-        if(rad.getZadatak() != null) {
-            ZadatakResponse zadatak = new ZadatakResponse();
-
-            zadatak.setId(rad.getZadatak().getId());
-            zadatak.setNaziv(rad.getZadatak().getNaziv());
-            zadatak.setRepoPutanja(rad.getZadatak().getRepoPutanja());
-            response.setZadatak(zadatak);
-        }
-
-        return response;
     }
 
 }
