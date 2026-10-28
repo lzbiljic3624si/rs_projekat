@@ -22,6 +22,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.Optional;
 
@@ -110,14 +111,20 @@ class RadControllerTest {
     void mojVracaRadovePrijavljenogStudenta() {
         Student student = student();
         student.setIme("Ana");
-        Zadatak zadatak = zadatak();
+        Zadatak zadatak = zadatakSaPredmetom();
         zadatak.setNaziv("Prvi zadatak");
+        zadatak.setRepoPutanja("https://github.com/predmet/zadatak");
+        zadatak.getGrupa().getTermin().setVremePocetak(LocalTime.of(10, 0));
+        zadatak.getGrupa().getTermin().setVremeKraj(LocalTime.of(12, 0));
         Rad rad = new Rad();
         rad.setId(7L);
         rad.setStudent(student);
         rad.setZadatak(zadatak);
         rad.setVremePreuzimanja(LocalDateTime.of(2026, 10, 27, 12, 0));
-        rad.setStatus("PREUZET");
+        rad.setVremePredaje(LocalDateTime.of(2026, 10, 27, 14, 0));
+        rad.setRepoPutanjaResenja("https://github.com/student/resenje");
+        rad.setPoeni(8.5);
+        rad.setStatus("OCENJEN");
         when(radovi.getRadByStudentEmail(auth.getName())).thenReturn(List.of(rad));
 
         var odgovor = controller.moj(auth).getFirst();
@@ -126,6 +133,15 @@ class RadControllerTest {
         assertEquals("Ana", odgovor.getStudent().getIme());
         assertEquals("Prvi zadatak", odgovor.getZadatak().getNaziv());
         assertEquals(rad.getVremePreuzimanja(), odgovor.getVremePreuzimanja());
+        assertEquals(rad.getVremePredaje(), odgovor.getVremePredaje());
+        assertEquals("https://github.com/student/resenje", odgovor.getRepoPutanjaResenja());
+        assertEquals(8.5, odgovor.getPoeni());
+        assertEquals("OCENJEN", odgovor.getStatus());
+        assertEquals("https://github.com/predmet/zadatak", odgovor.getZadatak().getRepoPutanja());
+        var termin = odgovor.getZadatak().getGrupa().getTermin();
+        assertEquals(4L, termin.getPredmet().getId());
+        assertEquals(LocalTime.of(10, 0), termin.getVremePocetka());
+        assertEquals(LocalTime.of(12, 0), termin.getVremeKraja());
         verify(radovi).getRadByStudentEmail("student@example.com");
     }
 

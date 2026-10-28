@@ -37,6 +37,9 @@ class RasporedControllerTest {
         termin.setPredmet(predmet());
         termin.setRok(rok());
         termin.setUcionica(ucionica());
+        termin.setDatum(LocalDate.of(2027, 6, 1));
+        termin.setVremePocetak(LocalTime.of(10, 0));
+        termin.setVremeKraj(LocalTime.of(12, 0));
         when(termini.pronadjiPoPredmetuIRoku(4L, 6L)).thenReturn(List.of(termin));
 
         var odgovor = controller.termini(4L, 6L).getFirst();
@@ -44,6 +47,9 @@ class RasporedControllerTest {
         assertEquals(4L, odgovor.getPredmet().getId());
         assertEquals(6L, odgovor.getRok().getId());
         assertEquals(5L, odgovor.getUcionica().getId());
+        assertEquals(LocalDate.of(2027, 6, 1), odgovor.getDatum());
+        assertEquals(LocalTime.of(10, 0), odgovor.getVremePocetka());
+        assertEquals(LocalTime.of(12, 0), odgovor.getVremeKraja());
     }
 
     @Test
