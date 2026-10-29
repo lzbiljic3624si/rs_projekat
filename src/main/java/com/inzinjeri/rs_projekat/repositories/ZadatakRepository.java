@@ -17,5 +17,7 @@ public interface ZadatakRepository extends JpaRepository<Zadatak, Long> {
 
 
     @Query("SELECT z FROM Zadatak z WHERE z.grupa.id = :grupaId")
-    List<Zadatak> pronadjiPoGrupi(@Param("grupaId") Long grupaId);
+    Optional<Zadatak> pronadjiPoGrupi(@Param("grupaId") Long grupaId);
+
+    boolean existsByGrupa_Id(Long grupaId);
 }

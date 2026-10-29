@@ -2,6 +2,7 @@ package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.mapping.ToOne;
 
 @Entity
 @Data
@@ -15,8 +16,8 @@ public class Zadatak {
     @Column(nullable = false)
     private String naziv;
 
-    @ManyToOne
-    @JoinColumn(name = "grupa_id")
+    @OneToOne
+    @JoinColumn(name = "grupa_id", unique = true)
     private Grupa grupa;
 
     @Column(nullable = false, unique = true)

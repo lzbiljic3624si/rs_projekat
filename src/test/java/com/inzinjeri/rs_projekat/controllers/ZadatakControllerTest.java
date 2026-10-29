@@ -41,7 +41,7 @@ class ZadatakControllerTest {
         when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
         when(zadaci.pronadjiPoGrupi(3L)).thenReturn(List.of(zadatak));
 
-        var odgovor = controller.zaGrupu(3L, student).getFirst();
+        var odgovor = controller.zaGrupu(3L, student);
         assertEquals(9L, odgovor.getId());
         assertEquals("Prvi zadatak", odgovor.getNaziv());
         assertEquals(3L, odgovor.getGrupa().getId());
