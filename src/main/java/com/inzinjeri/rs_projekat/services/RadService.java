@@ -131,10 +131,9 @@ public class RadService {
         }
 
         boolean smeDaPreuzme = prijavljenStudentRepository
-                .existsByStudent_IdAndGrupa_IdAndStatus(
+                .existsByStudent_IdAndGrupa_Id(
                         student.getId(),
-                        zadatak.getGrupa().getId(),
-                        "PRIHVACEN"
+                        zadatak.getGrupa().getId()
                 );
 
         if (!smeDaPreuzme) {

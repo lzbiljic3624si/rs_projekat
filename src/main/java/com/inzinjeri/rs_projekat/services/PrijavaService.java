@@ -47,7 +47,6 @@ public class PrijavaService {
         PrijavljenStudent prijavljenStudent = new PrijavljenStudent();
         prijavljenStudent.setStudent(student);
         prijavljenStudent.setGrupa(grupa);
-        prijavljenStudent.setStatus("NA_CEKANJU"); //mozda ne treba
 
         return prijavljanStudentRepository.save(prijavljenStudent).getId();
     }
@@ -75,29 +74,6 @@ public class PrijavaService {
         return prijavljanStudentRepository.findByGrupa_Id(grupaId);
     }
 
-    @Transactional
-    public PrijavljenStudent prihvati(Long prijavaId, Authentication auth) {
-        PrijavljenStudent prijava = prijavljanStudentRepository.findById(prijavaId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Prijava ne postoji"
-                ));
-
-        proveriProfesora(auth, prijava.getGrupa());
-
-        if (!"NA_CEKANJU".equals(prijava.getStatus())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Prijava vise nije na cekanju"
-            );
-        }
-
-        prijava.setStatus("PRIHVACEN");
-
-        return prijavljanStudentRepository.save(prijava);
-    }
-
-
     private void proveriProfesora(Authentication auth, Grupa grupa) {
         if (auth.getAuthorities()
                 .stream()
@@ -105,7 +81,7 @@ public class PrijavaService {
                         .equals(uloga.getAuthority()))) {
             throw new ResponseStatusException(
                     HttpStatus.FORBIDDEN,
-                    "Samo profesor moze da prihvati prijavu"
+                    "Samo profesor moze da vidi prijave grupe"
             );
         }
 

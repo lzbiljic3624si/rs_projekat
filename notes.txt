@@ -1,41 +1,14 @@
 
 
-!PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo dva mpetrovic
-
-
-!!!! Važan postojeći propust: prijavljen student trenutno može da doda predmet. To nisam menjao, jer je zadatak bio sređivanje testova.
+PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo dva mpetrovic
+PITANJE: da li nam je potrebna forma za kreiranje naloga
+PITANJE: da li su nam neophodni exceptions
 
 TODO: Proveriti da li da dodajemo ENUM-e u statuse
 TODO: Videti cemu sluzi ParseUtils i kako to da iskoristimo za index i email StudentResponse.java => uz to dodati i vremerRada za RadResponse.java
-
-TODO: Odraditi EntityMappers za responses
 
 POTENCIJALNE PROMENE REQUESTOVA
 
 - RokRequest.java (/C:/Users/PC/OneDrive/Desktop/Projekat razvoj softvera/rs_projekat/src/main/java/com/inzinjeri/rs_projekat/controllers/request/RokRequest.java:12) ima godinaUpisa, a model Rok ima skolskaGodina. To izgleda kao greška u nazivu.
 - StudentRequest i ProfesorRequest zahtevaju password. Dobri su za kreiranje naloga, ali nisu pogodni za običnu izmenu profila ako korisnik tada ne menja lozinku.
 - TerminRequest i PredajePredmetRequest povezuju postojeće zapise preko naziva i emaila. ID-jevi bi bili jednostavniji i manje dvosmisleni, kao što već radi GrupaRequest sa terminId.
-
-CONTROLLERI
-
-Za početak bih ih grupisao po funkcijama:
-
-- RasporedController — rokovi, termini, učionice i grupe
-- PrijavaController — prijavljivanje studenta u grupu
-- ZadatakController — zadaci, predaja i ocenjivanje radova
-- PredmetController — predmeti i profesori koji ih predaju
-
-AuthController dodaješ ako pravite prijavu korisnika. Posebni kontroleri za Student, Profesor, Ucionica i ostale modele trebaju tek ako za njih imate zasebne korisničke operacije.
-
-
-TODO: Kako hashovati password - to nam treba u Request
-
-Povezivanje grupe sa terminom (kada budemo pravili kontrolere i formu):
-1. Korisnik bira predmet i rok. Forma salje njihove ID-jeve endpointu za listu termina.
-2. Endpoint poziva TerminRepository.pronadjiPoPredmetuIRoku(predmetId, rokId), tako da ne ucitava sve termine iz baze.
-3. U listi prikazati datum, vreme pocetka/kraja i ucionicu iz TerminResponse. Korisnik vidi opis termina, a forma cuva njegov ID.
-4. Pri cuvanju grupe forma salje naziv grupe i terminId iz GrupaRequest. Korisnik ne kuca ID.
-5. Backend trazi termin preko TerminRepository.findById(terminId). Ako ne postoji, vraca gresku; ako postoji, postavlja grupa.setTermin(termin) i cuva grupu preko GrupaRepository.save(grupa).
-6. U bazi Grupa.termin ostaje veza preko termin_id. Ne kopirati datum, predmet, rok i ucionicu u tabelu grupa.
-
-Napomena za mapper: Termin ima polja vremePocetak/vremeKraj, a TerminResponse vremePocetka/vremeKraja; ta polja treba eksplicitno preslikati.

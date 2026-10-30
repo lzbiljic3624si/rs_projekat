@@ -1,6 +1,7 @@
 package com.inzinjeri.rs_projekat.config;
 
 import com.inzinjeri.rs_projekat.controllers.PredmetController;
+import com.inzinjeri.rs_projekat.model.Predmet;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.repositories.ProfesorRepository;
 import com.inzinjeri.rs_projekat.repositories.StudentRepository;
@@ -49,17 +50,46 @@ class SecurityHttpTest {
 
     @Test
     void postBezCsrfTokenaSeOdbija() throws Exception {
-        mvc.perform(post("/api/predmet/add").with(user("student@test.rs")).contentType("application/json").content("{}"))
+        mvc.perform(post("/api/predmet/add").with(user("profesor@test.rs").roles("PROFESOR")).contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(predmeti);
     }
 
     @Test
     void csrfTokenPropustaZahtevDoValidacije() throws Exception {
-        mvc.perform(post("/api/predmet/add").with(user("student@test.rs")).with(csrf())
+        mvc.perform(post("/api/predmet/add").with(user("profesor@test.rs").roles("PROFESOR")).with(csrf())
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
         verifyNoInteractions(predmeti);
+    }
+
+    @Test
+    void studentNeMozeDaDodaPredmetNiSaCsrfTokenom() throws Exception {
+        Predmet predmet = new Predmet();
+        predmet.setId(1L);
+        when(predmeti.save(any())).thenReturn(predmet);
+
+        mvc.perform(post("/api/predmet/add").with(user("student@test.rs").roles("STUDENT")).with(csrf())
+                        .contentType("application/json").content("""
+                                {"naziv":"Razvoj softvera","jezik":"Java","uslov":"OOP"}
+                                """))
+                .andExpect(status().isForbidden());
+        verifyNoInteractions(predmeti);
+    }
+
+    @Test
+    void profesorMozeDaDodaPredmet() throws Exception {
+        Predmet predmet = new Predmet();
+        predmet.setId(1L);
+        when(predmeti.save(any())).thenReturn(predmet);
+
+        mvc.perform(post("/api/predmet/add").with(user("profesor@test.rs").roles("PROFESOR")).with(csrf())
+                        .contentType("application/json").content("""
+                                {"naziv":"Razvoj softvera","jezik":"Java","uslov":"OOP"}
+                                """))
+                .andExpect(status().isCreated()).andExpect(content().string("1"));
+        verify(predmeti).save(argThat(p -> "Razvoj softvera".equals(p.getNaziv())
+                && "Java".equals(p.getJezik()) && "OOP".equals(p.getUslov())));
     }
 
     @Test

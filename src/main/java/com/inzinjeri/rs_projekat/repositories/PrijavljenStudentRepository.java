@@ -13,11 +13,6 @@ public interface PrijavljenStudentRepository extends JpaRepository<PrijavljenStu
             @Param("emailStudenta") String emailStudenta
     );
 
-    // Postoji li prijava ovog studenta u ovu grupu sa ovim statusom?
-    boolean existsByStudent_IdAndGrupa_IdAndStatus(
-            Long studentId, Long grupaId, String status
-    );
-
     boolean existsByStudent_IdAndGrupa_Id(Long studentId, Long grupaId);
 
     List<PrijavljenStudent> findByGrupa_Id(Long grupaId);

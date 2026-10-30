@@ -34,8 +34,7 @@ public class ZadatakService {
 
         boolean studentGrupe = studentRepository.pronadjiPoEmailu(auth.getName())
                 .map(student -> prijavljenStudentRepository
-                        .existsByStudent_IdAndGrupa_IdAndStatus(
-                                student.getId(), grupaId, "PRIHVACEN"))
+                        .existsByStudent_IdAndGrupa_Id(student.getId(), grupaId))
                 .orElse(false);
 
         if (!studentGrupe && !profesorPredajePredmet(auth, predmetId)) {

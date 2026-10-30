@@ -61,24 +61,28 @@ class ControllerHttpTest {
     void prijaveProsledjujuIdIIdentitetIMapirajuOdgovor() throws Exception {
         PrijavljenStudent prijava = new PrijavljenStudent();
         prijava.setId(8L);
-        prijava.setStatus("PRIHVACEN");
         when(prijave.prijaviSe(3L, auth)).thenReturn(8L);
         when(prijave.moje(auth)).thenReturn(List.of(prijava));
         when(prijave.prijavaZaGrupu(3L, auth)).thenReturn(List.of(prijava));
-        when(prijave.prihvati(8L, auth)).thenReturn(prijava);
 
         mvc.perform(post("/api/prijave/grupa/3").principal(auth))
                 .andExpect(status().isCreated()).andExpect(content().string("8"));
         mvc.perform(get("/api/prijave/moje").principal(auth)).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(8));
+                .andExpect(jsonPath("$[0].id").value(8))
+                .andExpect(jsonPath("$[0].status").doesNotExist());
         mvc.perform(get("/api/prijave/grupa/3").principal(auth)).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].status").value("PRIHVACEN"));
-        mvc.perform(post("/api/prijave/8/prihvati").principal(auth)).andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("PRIHVACEN"));
+                .andExpect(jsonPath("$[0].id").value(8))
+                .andExpect(jsonPath("$[0].status").doesNotExist());
         verify(prijave).prijaviSe(3L, auth);
         verify(prijave).moje(auth);
         verify(prijave).prijavaZaGrupu(3L, auth);
-        verify(prijave).prihvati(8L, auth);
+    }
+
+    @Test
+    void odobravanjePrijaveViseNePostoji() throws Exception {
+        mvc.perform(post("/api/prijave/8/prihvati").principal(auth))
+                .andExpect(status().isNotFound());
+        verifyNoInteractions(prijave);
     }
 
     @Test

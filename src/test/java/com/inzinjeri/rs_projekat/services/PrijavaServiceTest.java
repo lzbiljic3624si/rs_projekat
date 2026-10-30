@@ -26,7 +26,7 @@ class PrijavaServiceTest {
     private final Authentication profesorAuth = auth("profesor@test.rs", "ROLE_PROFESOR");
 
     @Test
-    void prijavaKreiraZahtevNaCekanju() {
+    void studentSeDirektnoPrijavljujeUGrupu() {
         Student student = new Student();
         student.setId(2L);
         Grupa grupa = grupa();
@@ -40,7 +40,7 @@ class PrijavaServiceTest {
 
         assertEquals(8L, service.prijaviSe(3L, studentAuth));
         verify(prijave).save(argThat(prijava -> prijava.getStudent() == student
-                && prijava.getGrupa() == grupa && "NA_CEKANJU".equals(prijava.getStatus())));
+                && prijava.getGrupa() == grupa));
     }
 
     @Test
@@ -56,39 +56,11 @@ class PrijavaServiceTest {
     }
 
     @Test
-    void profesorPredmetaPrihvataPrijavu() {
-        PrijavljenStudent prijava = new PrijavljenStudent();
-        prijava.setId(8L);
-        prijava.setGrupa(grupa());
-        prijava.setStatus("NA_CEKANJU");
-        when(prijave.findById(8L)).thenReturn(Optional.of(prijava));
-        when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
-        when(prijave.save(prijava)).thenReturn(prijava);
-
-        assertEquals("PRIHVACEN", service.prihvati(8L, profesorAuth).getStatus());
-        assertEquals("PRIHVACEN", prijava.getStatus());
-        verify(prijave).save(prijava);
-    }
-
-    @Test
-    void tudjiProfesorIStudentNeMoguDaPrihvatePrijavu() {
-        PrijavljenStudent prijava = new PrijavljenStudent();
-        prijava.setGrupa(grupa());
-        prijava.setStatus("NA_CEKANJU");
-        when(prijave.findById(8L)).thenReturn(Optional.of(prijava));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.prihvati(8L, profesorAuth));
-        when(predmeti.getPredmetiZaPredavaca(studentAuth.getName())).thenReturn(List.of(veza()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.prihvati(8L, studentAuth));
-        verify(prijave, never()).save(any());
-    }
-
-    @Test
     void profesorVidiPrijaveZaSvojuGrupu() {
         Grupa grupa = grupa();
         PrijavljenStudent prijava = new PrijavljenStudent();
         prijava.setId(8L);
         prijava.setGrupa(grupa);
-        prijava.setStatus("NA_CEKANJU");
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
         when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
         when(prijave.findByGrupa_Id(3L)).thenReturn(List.of(prijava));
@@ -110,24 +82,11 @@ class PrijavaServiceTest {
     }
 
     @Test
-    void prihvacenaPrijavaNeMozePonovoDaSePrihvati() {
-        PrijavljenStudent prijava = new PrijavljenStudent();
-        prijava.setGrupa(grupa());
-        prijava.setStatus("PRIHVACEN");
-        when(prijave.findById(8L)).thenReturn(Optional.of(prijava));
-        when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
-
-        assertStatus(HttpStatus.CONFLICT, () -> service.prihvati(8L, profesorAuth));
-        verify(prijave, never()).save(any());
-    }
-
-    @Test
     void nepostojeciPodaciINepotpunaGrupaSeOdbijaju() {
         assertStatus(HttpStatus.FORBIDDEN, () -> service.prijaviSe(3L, studentAuth));
         when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(new Student()));
         assertStatus(HttpStatus.NOT_FOUND, () -> service.prijaviSe(3L, studentAuth));
         assertStatus(HttpStatus.NOT_FOUND, () -> service.prijavaZaGrupu(3L, profesorAuth));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.prihvati(8L, profesorAuth));
         Grupa grupa = grupa();
         grupa.setTermin(null);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));

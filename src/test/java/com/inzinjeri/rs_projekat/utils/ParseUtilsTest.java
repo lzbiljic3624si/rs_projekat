@@ -14,9 +14,16 @@ class ParseUtilsTest {
 
     @Test
     void parseIndeks() {
-        assertArrayEquals(new String[] {"RN", "19", "23"}, ParseUtils.parseIndeks("rn1923"));
-        assertArrayEquals(new String[] {"RI", "20", "105"}, ParseUtils.parseIndeks(" RI20105 "));
+        assertArrayEquals(new String[] {"SI", "24", "36"}, ParseUtils.parseIndeks("3624si"));
+        assertArrayEquals(new String[] {"RI", "20", "105"}, ParseUtils.parseIndeks(" 10520RI "));
+        assertArrayEquals(new String[] {"RN", "05", "1"}, ParseUtils.parseIndeks("105rn"));
+        assertArrayEquals(new String[] {"RN", "24", "123456"}, ParseUtils.parseIndeks("12345624rn"));
         assertNull(ParseUtils.parseIndeks(null));
+        assertNull(ParseUtils.parseIndeks(""));
+        assertNull(ParseUtils.parseIndeks("rn1923"));
+        assertNull(ParseUtils.parseIndeks("24si"));
+        assertNull(ParseUtils.parseIndeks("123456724rn"));
+        assertNull(ParseUtils.parseIndeks("36/24si"));
         assertNull(ParseUtils.parseIndeks("1923"));
         assertNull(ParseUtils.parseIndeks("rn1"));
         assertNull(ParseUtils.parseIndeks("1/2023"));

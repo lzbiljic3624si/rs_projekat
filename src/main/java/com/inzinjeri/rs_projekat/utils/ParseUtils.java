@@ -10,8 +10,8 @@ import java.util.regex.Pattern;
 
 public final class ParseUtils {
 
-    // rn1923 -> smer, dve cifre godine, broj
-    private static final Pattern INDEKS_PATTERN = Pattern.compile("^([A-Za-z]+)(\\d{2})(\\d{1,6})$");
+    // 3624si -> broj, dve cifre godine, smer
+    private static final Pattern INDEKS_PATTERN = Pattern.compile("^(\\d{1,6})(\\d{2})([A-Za-z]+)$");
     // ppetrovic1220rn@raf.rs -> ime, broj, dve cifre godine, smer
     private static final Pattern EMAIL_PATTERN = Pattern.compile("^[A-Za-z]+(\\d{1,6})(\\d{2})([A-Za-z]+)@raf\\.rs$");
     // dvoslovni pocetak imena koji se u email-u pise sa dva slova (Djordje, Dzemal, Ljiljana, Njegos)
@@ -21,14 +21,14 @@ public final class ParseUtils {
     }
 
     /*
-     * dobija indeks oblika rn1923 i vraca niz stringova [RN, 19, 23]
+     * dobija indeks oblika 3624si i vraca niz stringova [SI, 24, 36]
      * ili null ako string nije u ispravnom obliku
      */
     public static String[] parseIndeks(String indeksShort) {
         if (indeksShort == null) return null;
         Matcher m = INDEKS_PATTERN.matcher(indeksShort.trim());
         if (!m.matches()) return null;
-        return new String[] {m.group(1).toUpperCase(), m.group(2), m.group(3)};
+        return new String[] {m.group(3).toUpperCase(), m.group(2), m.group(1)};
     }
 
     /*

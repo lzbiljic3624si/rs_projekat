@@ -19,7 +19,4 @@ public class PrijavljenStudent {
     @ManyToOne
     @JoinColumn(name = "grupa_id")
     private Grupa grupa;
-
-    @Column(nullable = false)
-    private String status;
 }

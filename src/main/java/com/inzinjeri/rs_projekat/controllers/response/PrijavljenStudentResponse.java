@@ -7,5 +7,4 @@ public class PrijavljenStudentResponse {
     private Long id;
     private StudentResponse student;
     private GrupaResponse grupa;
-    private String status;
 }

@@ -28,7 +28,7 @@ class ZadatakServiceTest {
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
 
     @Test
-    void prihvacenStudentVidiZadatkeGrupe() {
+    void prijavljenStudentVidiZadatakGrupeBezOdobrenja() {
         Grupa grupa = grupa();
         Student studentModel = new Student();
         studentModel.setId(2L);
@@ -38,7 +38,7 @@ class ZadatakServiceTest {
         zadatak.setGrupa(grupa);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
         when(studenti.pronadjiPoEmailu(student.getName())).thenReturn(Optional.of(studentModel));
-        when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
+        when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
         when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
 
         var odgovor = service.zaGrupu(3L, student);
@@ -48,7 +48,7 @@ class ZadatakServiceTest {
     }
 
     @Test
-    void studentBezPrihvacenePrijaveNeVidiZadatke() {
+    void korisnikBezStudentskogNalogaNeVidiZadatak() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
         assertStatus(HttpStatus.FORBIDDEN, () -> service.zaGrupu(3L, student));
         verify(zadaci, never()).pronadjiPoGrupi(any());
@@ -122,7 +122,7 @@ class ZadatakServiceTest {
     }
 
     @Test
-    void postojeciStudentBezPrihvacenePrijaveNemaPristup() {
+    void postojeciStudentBezPrijaveNemaPristup() {
         Student studentModel = new Student();
         studentModel.setId(2L);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));

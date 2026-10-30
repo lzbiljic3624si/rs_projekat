@@ -74,12 +74,12 @@ class EntityMappersTest {
         assertEquals("Petrovic", response.getProfesor().getPrezime());
         assertEquals(profesor.getEmail(), response.getProfesor().getEmail());
         assertFalse(JsonMapper.builder().build().writeValueAsString(response).contains("tajni-hash"));
-        PrijavljenStudent prijava = new PrijavljenStudent(); prijava.setId(8L); prijava.setStatus("NA_CEKANJU");
+        PrijavljenStudent prijava = new PrijavljenStudent(); prijava.setId(8L);
         Student student = new Student(); student.setId(3L); prijava.setStudent(student);
         Grupa grupa = new Grupa(); grupa.setId(5L); prijava.setGrupa(grupa);
         var prijavaResponse = EntityMappers.toResponse(prijava);
         assertEquals(8L, prijavaResponse.getId());
-        assertEquals("NA_CEKANJU", prijavaResponse.getStatus());
+        assertFalse(JsonMapper.builder().build().writeValueAsString(prijavaResponse).contains("\"status\""));
         assertEquals(3L, prijavaResponse.getStudent().getId());
         assertEquals(5L, prijavaResponse.getGrupa().getId());
     }

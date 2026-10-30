@@ -75,7 +75,6 @@ public final class EntityMappers {
         response.setId(prijava.getId());
         response.setStudent(toResponse(prijava.getStudent()));
         response.setGrupa(toResponse(prijava.getGrupa()));
-        response.setStatus(prijava.getStatus());
         return response;
     }
 

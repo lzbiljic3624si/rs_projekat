@@ -148,12 +148,12 @@ class RadServiceTest {
     }
 
     @Test
-    void preuzmiCuvaRadZaPrijavljenogStudenta() {
+    void preuzmiCuvaRadZaPrijavljenogStudentaBezOdobrenja() {
         Student student = student();
         Zadatak zadatak = zadatak();
         when(studenti.pronadjiPoEmailu(auth.getName())).thenReturn(Optional.of(student));
         when(zadaci.findById(5L)).thenReturn(Optional.of(zadatak));
-        when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
+        when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
         when(radovi.save(any(Rad.class))).thenAnswer(call -> {
             Rad rad = call.getArgument(0);
             rad.setId(9L);
@@ -189,7 +189,7 @@ class RadServiceTest {
         zadatak.setGrupa(grupa);
         assertStatus(HttpStatus.FORBIDDEN, () -> service.preuzmi(5L, auth));
 
-        when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
+        when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
         when(radovi.existsByStudent_IdAndZadatak_Id(2L, 5L)).thenReturn(true);
         assertStatus(HttpStatus.CONFLICT, () -> service.preuzmi(5L, auth));
         verify(radovi, never()).save(any(Rad.class));

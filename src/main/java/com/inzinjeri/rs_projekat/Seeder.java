@@ -147,7 +147,6 @@ public class Seeder implements CommandLineRunner {
             PrijavljenStudent ps = new PrijavljenStudent();
             ps.setStudent(studentList.get(i - 1));
             ps.setGrupa(grupaList.get(i - 1));
-            ps.setStatus(i % 2 == 0 ? "PRIHVACEN" : "NA_CEKANJU");
             prijavljenStudentRepository.save(ps);
         }
 
