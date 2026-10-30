@@ -1,48 +1,63 @@
 package com.inzinjeri.rs_projekat.config;
 
-import com.inzinjeri.rs_projekat.model.Profesor;
-import com.inzinjeri.rs_projekat.model.Student;
-import com.inzinjeri.rs_projekat.repositories.ProfesorRepository;
-import com.inzinjeri.rs_projekat.repositories.StudentRepository;
 import org.junit.jupiter.api.Test;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
+import org.springframework.security.oauth2.jwt.*;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.when;
+import static org.junit.jupiter.api.Assertions.*;
 
 class SecurityConfigTest {
+    private final SecurityConfig config = new SecurityConfig();
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"kratak-kljuc", "1234567890123456789012345678901"})
+    void nedostajuciIliPrekratakKljucSeOdbija(String secret) {
+        assertThrows(IllegalStateException.class, () -> config.jwtKey(props(secret)));
+    }
 
     @Test
-    void loadsStudentAndProfesorButRejectsAmbiguousEmail() {
-        var students = mock(StudentRepository.class);
-        var profesori = mock(ProfesorRepository.class);
-        var student = new Student();
-        student.setPasswordHash("student-hash");
-        var profesor = new Profesor();
-        profesor.setPasswordHash("profesor-hash");
-        var config = new SecurityConfig();
+    void duzinaKljucaSeMeriUBajtovima() {
+        var key = config.jwtKey(props("č".repeat(16)));
+        assertEquals(32, key.getEncoded().length);
+        assertEquals("HmacSHA256", key.getAlgorithm());
+    }
 
-        when(students.pronadjiPoEmailu("student@example.com")).thenReturn(Optional.of(student));
-        when(profesori.getProfesorByEmail("student@example.com")).thenReturn(List.of());
-        when(students.pronadjiPoEmailu("profesor@example.com")).thenReturn(Optional.empty());
-        when(profesori.getProfesorByEmail("profesor@example.com")).thenReturn(List.of(profesor));
-        when(students.pronadjiPoEmailu("duplikat@example.com")).thenReturn(Optional.of(student));
-        when(profesori.getProfesorByEmail("duplikat@example.com")).thenReturn(List.of(profesor));
+    @Test
+    void hs256TokenCuvaDogovoreniIdentitetIUlogu() {
+        var key = config.jwtKey(props("test-only-jwt-secret-at-least-32-bytes"));
+        Instant now = Instant.now();
+        var claims = JwtClaimsSet.builder().subject("student@test.rs")
+                .issuedAt(now).expiresAt(now.plusSeconds(3600))
+                .claim("uloga", "STUDENT").claim("korisnikId", 10L).claim("studentId", 1L).build();
+        String token = config.jwtEncoder(key).encode(JwtEncoderParameters.from(
+                JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
+        Jwt decoded = config.jwtDecoder(key).decode(token);
+        assertEquals("student@test.rs", decoded.getSubject());
+        assertEquals("STUDENT", decoded.getClaimAsString("uloga"));
+        assertEquals(1L, ((Number) decoded.getClaim("studentId")).longValue());
+    }
 
-        var users = config.userDetailsService(students, profesori);
-        assertEquals("student-hash", users.loadUserByUsername("student@example.com").getPassword());
-        assertEquals("ROLE_STUDENT", users.loadUserByUsername("student@example.com").getAuthorities().iterator().next().getAuthority());
-        assertEquals("profesor-hash", users.loadUserByUsername("profesor@example.com").getPassword());
-        assertEquals("ROLE_PROFESOR", users.loadUserByUsername("profesor@example.com").getAuthorities().iterator().next().getAuthority());
-        assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("duplikat@example.com"));
-        assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("nepoznat@example.com"));
+    @Test
+    void lozinkePodrzavajuNoviFormatIPostojeceBcryptHashove() {
+        var encoder = config.passwordEncoder();
+        String noviHash = encoder.encode("lozinka");
+        assertTrue(noviHash.startsWith("{bcrypt}"));
+        assertTrue(encoder.matches("lozinka", noviHash));
+        String stariHash = new BCryptPasswordEncoder().encode("lozinka");
+        assertTrue(encoder.matches("lozinka", stariHash));
+        assertFalse(encoder.matches("pogresna", stariHash));
+    }
 
-        when(profesori.getProfesorByEmail("vise@example.com")).thenReturn(List.of(profesor, profesor));
-        assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("vise@example.com"));
+    private SecurityProperties props(String secret) {
+        return new SecurityProperties(secret, Duration.ofHours(1), List.of("http://localhost:3000"));
     }
 }

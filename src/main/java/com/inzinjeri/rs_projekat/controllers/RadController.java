@@ -18,6 +18,7 @@ import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,6 +29,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/rad")
 @RequiredArgsConstructor
+@PreAuthorize("hasRole('STUDENT')")
 public class RadController {
 
     private final RadService radService;
@@ -41,6 +43,7 @@ public class RadController {
     }
 
     @GetMapping("/predmet/{predmetId}/predati")
+    @PreAuthorize("@pristupService.profesorPredajePredmet(authentication, #predmetId)")
     public List<RadResponse> predati(@PathVariable Long predmetId, Authentication auth) {
         return radService.predati(predmetId, auth)
                 .stream()
@@ -49,6 +52,7 @@ public class RadController {
     }
 
     @PostMapping("/{radId}/oceni")
+    @PreAuthorize("@pristupService.profesorPredajePredmetRada(authentication, #radId)")
     public RadResponse oceni(@PathVariable Long radId,
                              @Valid @RequestBody OcenaRadaRequest request,
                              Authentication auth) {
@@ -56,6 +60,7 @@ public class RadController {
     }
 
     @PostMapping("/{radId}/predaj")
+    @PreAuthorize("@pristupService.studentJeVlasnikRada(authentication, #radId)")
     public RadResponse predaj(@PathVariable Long radId,
                               @Valid @RequestBody PredajaRadaRequest request,
                               Authentication auth) {
@@ -65,6 +70,7 @@ public class RadController {
     }
 
     @PostMapping("/{zadatakId}/preuzmi")
+    @PreAuthorize("@pristupService.studentImaPristupZadatku(authentication, #zadatakId)")
     @ResponseStatus(HttpStatus.CREATED)
     public Long preuzmi(@PathVariable Long zadatakId, Authentication auth) {
         return radService.preuzmi(zadatakId, auth);

@@ -14,6 +14,7 @@ import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -24,16 +25,20 @@ import java.util.Optional;
 @RestController
 @RequestMapping("/api/zadaci")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
 public class ZadatakController {
 
     private final ZadatakService zadatakService;
 
     @GetMapping("/grupa/{grupaId}")
+    @PreAuthorize("@pristupService.studentPripadaGrupi(authentication, #grupaId) or "
+            + "@pristupService.profesorPredajePredmetGrupe(authentication, #grupaId)")
     public ZadatakResponse zaGrupu(@PathVariable Long grupaId, Authentication auth) {
         return zadatakService.zaGrupu(grupaId, auth);
     }
 
     @PostMapping
+    @PreAuthorize("@pristupService.profesorPredajePredmetGrupe(authentication, #request.grupaId)")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodaj(@Valid @RequestBody ZadatakRequest request, Authentication auth) {
         return zadatakService.dodaj(request, auth);

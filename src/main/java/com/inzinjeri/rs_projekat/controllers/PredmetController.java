@@ -10,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.hibernate.action.internal.EntityIncrementVersionProcess;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -24,12 +25,14 @@ import java.util.List;
 @RestController // prima web zahteve i vraca podatke kao JSON
 @RequestMapping("/api/predmet") // zajednicki pocetak adrese za sve metode u klasi
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
 public class PredmetController {
 
     private final PredmetService predmetService;
 
     @PostMapping("/add") // dodavanje predmeta
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('PROFESOR')")
     public Long add(@Valid @RequestBody PredmetRequest request) {
 
         Predmet predmet = new Predmet();

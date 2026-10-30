@@ -12,6 +12,7 @@ import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.server.ResponseStatusException;
@@ -21,6 +22,7 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/raspored")
 @RequiredArgsConstructor
+@PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
 public class RasporedController {
 
     private final RasporedService rasporedService;
@@ -58,24 +60,28 @@ public class RasporedController {
     }
 
     @PostMapping("/rokovi")
+    @PreAuthorize("hasRole('PROFESOR')")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodajRok(@Valid @RequestBody RokRequest request, Authentication auth) {
         return rasporedService.dodajRok(request, auth);
     }
 
     @PostMapping("/ucionice")
+    @PreAuthorize("hasRole('PROFESOR')")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodajUcionicu(@Valid @RequestBody UcionicaRequest request, Authentication auth) {
         return rasporedService.dodajUcionicu(request, auth);
     }
 
     @PostMapping("/termini")
+    @PreAuthorize("@pristupService.profesorPredajePredmet(authentication, #request.predmetId)")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodajTermin(@Valid @RequestBody TerminRequest request, Authentication auth) {
         return rasporedService.dodajTermin(request, auth);
     }
 
     @PostMapping("/grupe")
+    @PreAuthorize("@pristupService.profesorPredajePredmetTermina(authentication, #request.terminId)")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodajGrupu(@Valid @RequestBody GrupaRequest request, Authentication auth) {
         return rasporedService.dodajGrupu(request, auth);

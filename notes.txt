@@ -4,11 +4,4 @@ PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo 
 PITANJE: da li nam je potrebna forma za kreiranje naloga
 PITANJE: da li su nam neophodni exceptions
 
-TODO: Proveriti da li da dodajemo ENUM-e u statuse
-TODO: Videti cemu sluzi ParseUtils i kako to da iskoristimo za index i email StudentResponse.java => uz to dodati i vremerRada za RadResponse.java
-
-POTENCIJALNE PROMENE REQUESTOVA
-
-- RokRequest.java (/C:/Users/PC/OneDrive/Desktop/Projekat razvoj softvera/rs_projekat/src/main/java/com/inzinjeri/rs_projekat/controllers/request/RokRequest.java:12) ima godinaUpisa, a model Rok ima skolskaGodina. To izgleda kao greška u nazivu.
-- StudentRequest i ProfesorRequest zahtevaju password. Dobri su za kreiranje naloga, ali nisu pogodni za običnu izmenu profila ako korisnik tada ne menja lozinku.
-- TerminRequest i PredajePredmetRequest povezuju postojeće zapise preko naziva i emaila. ID-jevi bi bili jednostavniji i manje dvosmisleni, kao što već radi GrupaRequest sa terminId.
+Proveriti da li da dodajemo ENUM-e u statuse  -> Za sada necemo
