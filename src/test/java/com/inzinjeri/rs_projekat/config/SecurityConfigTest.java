@@ -40,5 +40,9 @@ class SecurityConfigTest {
         assertEquals("profesor-hash", users.loadUserByUsername("profesor@example.com").getPassword());
         assertEquals("ROLE_PROFESOR", users.loadUserByUsername("profesor@example.com").getAuthorities().iterator().next().getAuthority());
         assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("duplikat@example.com"));
+        assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("nepoznat@example.com"));
+
+        when(profesori.getProfesorByEmail("vise@example.com")).thenReturn(List.of(profesor, profesor));
+        assertThrows(UsernameNotFoundException.class, () -> users.loadUserByUsername("vise@example.com"));
     }
 }

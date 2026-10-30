@@ -1,4 +1,4 @@
-package com.inzinjeri.rs_projekat.controllers;
+package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.controllers.request.*;
 import com.inzinjeri.rs_projekat.model.*;
@@ -19,14 +19,14 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class RasporedControllerTest {
+class RasporedServiceTest {
     private final RokRepository rokovi = mock(RokRepository.class);
     private final UcionicaRepository ucionice = mock(UcionicaRepository.class);
     private final TerminRepository termini = mock(TerminRepository.class);
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final PredmetRepository predmeti = mock(PredmetRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
-    private final RasporedController controller = new RasporedController(rokovi, ucionice, termini, grupe, predmeti, predaje);
+    private final RasporedService service = new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predaje);
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
 
@@ -37,19 +37,19 @@ class RasporedControllerTest {
         termin.setPredmet(predmet());
         termin.setRok(rok());
         termin.setUcionica(ucionica());
-        termin.setDatum(LocalDate.of(2027, 6, 1));
+        termin.setDatum(LocalDate.now().plusDays(1));
         termin.setVremePocetak(LocalTime.of(10, 0));
         termin.setVremeKraj(LocalTime.of(12, 0));
         when(termini.pronadjiPoPredmetuIRoku(4L, 6L)).thenReturn(List.of(termin));
 
-        var odgovor = controller.termini(4L, 6L).getFirst();
+        var odgovor = service.termini(4L, 6L).getFirst();
         assertEquals(7L, odgovor.getId());
         assertEquals(4L, odgovor.getPredmet().getId());
         assertEquals(6L, odgovor.getRok().getId());
         assertEquals(5L, odgovor.getUcionica().getId());
-        assertEquals(LocalDate.of(2027, 6, 1), odgovor.getDatum());
-        assertEquals(LocalTime.of(10, 0), odgovor.getVremePocetka());
-        assertEquals(LocalTime.of(12, 0), odgovor.getVremeKraja());
+        assertEquals(LocalDate.now().plusDays(1), odgovor.getDatum());
+        assertEquals(LocalTime.of(10, 0), odgovor.getVremePocetak());
+        assertEquals(LocalTime.of(12, 0), odgovor.getVremeKraj());
     }
 
     @Test
@@ -65,7 +65,7 @@ class RasporedControllerTest {
             return termin;
         });
 
-        assertEquals(7L, controller.dodajTermin(request, profesor));
+        assertEquals(7L, service.dodajTermin(request, profesor));
         verify(termini).save(argThat(termin -> termin.getPredmet().getId().equals(4L)
                 && termin.getRok().getId().equals(6L) && termin.getUcionica().getId().equals(5L)
                 && termin.getVremePocetak().equals(LocalTime.of(10, 0))));
@@ -75,15 +75,15 @@ class RasporedControllerTest {
     void terminOdbijaLoseVremeZauzetuUcionicuITudjegProfesora() {
         TerminRequest request = zahtevZaTermin();
         request.setVremeKraja(LocalTime.of(10, 0));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> controller.dodajTermin(request, profesor));
+        assertStatus(HttpStatus.BAD_REQUEST, () -> service.dodajTermin(request, profesor));
         request.setVremeKraja(LocalTime.of(12, 0));
         when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.dodajTermin(request, profesor));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajTermin(request, profesor));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(ucionice.findById(5L)).thenReturn(Optional.of(ucionica()));
         when(rokovi.findById(6L)).thenReturn(Optional.of(rok()));
         when(termini.postojiPreklapanje(5L, request.getDatum(), request.getVremePocetak(), request.getVremeKraja())).thenReturn(true);
-        assertStatus(HttpStatus.CONFLICT, () -> controller.dodajTermin(request, profesor));
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodajTermin(request, profesor));
         verify(termini, never()).save(any());
     }
 
@@ -102,7 +102,7 @@ class RasporedControllerTest {
             return grupa;
         });
 
-        assertEquals(3L, controller.dodajGrupu(request, profesor));
+        assertEquals(3L, service.dodajGrupu(request, profesor));
         verify(grupe).save(argThat(grupa -> grupa.getTermin() == termin && "G1".equals(grupa.getNaziv())));
     }
 
@@ -111,13 +111,99 @@ class RasporedControllerTest {
         RokRequest request = new RokRequest();
         request.setNaziv("Junski");
         request.setSkolskaGodina(2026);
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.dodajRok(request, student));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajRok(request, student));
         verify(rokovi, never()).save(any());
+    }
+
+    @Test
+    void rokIUcionicaSeCuvajuSaSvimPoljima() {
+        RokRequest rok = new RokRequest();
+        rok.setNaziv("Junski");
+        rok.setSkolskaGodina(2026);
+        when(rokovi.save(any())).thenAnswer(call -> {
+            Rok sacuvan = call.getArgument(0); sacuvan.setId(6L); return sacuvan;
+        });
+        UcionicaRequest ucionica = new UcionicaRequest();
+        ucionica.setNaziv("Lab 1");
+        when(ucionice.save(any())).thenAnswer(call -> {
+            Ucionica sacuvana = call.getArgument(0); sacuvana.setId(5L); return sacuvana;
+        });
+
+        assertEquals(6L, service.dodajRok(rok, profesor));
+        assertEquals(5L, service.dodajUcionicu(ucionica, profesor));
+        verify(rokovi).save(argThat(r -> "Junski".equals(r.getNaziv()) && Integer.valueOf(2026).equals(r.getSkolskaGodina())));
+        verify(ucionice).save(argThat(u -> "Lab 1".equals(u.getNaziv())));
+    }
+
+    @Test
+    void duplikatiRokaUcioniceIGrupeSeNeCuvaju() {
+        RokRequest rok = new RokRequest(); rok.setNaziv("Junski"); rok.setSkolskaGodina(2026);
+        when(rokovi.existsByNazivAndSkolskaGodina("Junski", 2026)).thenReturn(true);
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodajRok(rok, profesor));
+        UcionicaRequest ucionica = new UcionicaRequest(); ucionica.setNaziv("Lab 1");
+        when(ucionice.pronadjiPoNazivu("Lab 1")).thenReturn(Optional.of(ucionica()));
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodajUcionicu(ucionica, profesor));
+        Termin termin = new Termin(); termin.setPredmet(predmet());
+        GrupaRequest grupa = new GrupaRequest(); grupa.setNaziv("G1"); grupa.setTerminId(7L);
+        when(termini.findById(7L)).thenReturn(Optional.of(termin));
+        when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
+        when(grupe.existsByNaziv("G1")).thenReturn(true);
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodajGrupu(grupa, profesor));
+        verify(rokovi, never()).save(any());
+        verify(ucionice, never()).save(any());
+        verify(grupe, never()).save(any());
+    }
+
+    @Test
+    void terminProveravaSveObavezneVeze() {
+        TerminRequest request = zahtevZaTermin();
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
+        when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        when(ucionice.findById(5L)).thenReturn(Optional.of(ucionica()));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        verify(termini, never()).save(any());
+    }
+
+    @Test
+    void grupaProveravaTerminIPredmet() {
+        GrupaRequest request = new GrupaRequest(); request.setNaziv("G1"); request.setTerminId(7L);
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajGrupu(request, profesor));
+        when(termini.findById(7L)).thenReturn(Optional.of(new Termin()));
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodajGrupu(request, profesor));
+        verify(grupe, never()).save(any());
+    }
+
+    @Test
+    void studentNeMozeDaKreiraUcionicuTerminNiGrupu() {
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajUcionicu(new UcionicaRequest(), student));
+        when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajTermin(zahtevZaTermin(), student));
+        Termin termin = new Termin(); termin.setPredmet(predmet());
+        when(termini.findById(7L)).thenReturn(Optional.of(termin));
+        GrupaRequest grupa = new GrupaRequest(); grupa.setTerminId(7L);
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajGrupu(grupa, student));
+        verify(ucionice, never()).save(any());
+        verify(termini, never()).save(any());
+        verify(grupe, never()).save(any());
+    }
+
+    @Test
+    void listeKoristeTacneRepozitorijumeIFiltere() {
+        when(rokovi.findAll()).thenReturn(List.of(rok()));
+        when(ucionice.findAll()).thenReturn(List.of(ucionica()));
+        Grupa grupa = new Grupa(); grupa.setId(3L);
+        when(grupe.getGrupeZaTermin(7L)).thenReturn(List.of(grupa));
+        assertEquals(6L, service.rokovi().getFirst().getId());
+        assertEquals(5L, service.ucionice().getFirst().getId());
+        assertEquals(List.of(grupa), service.grupe(7L));
+        verify(grupe).getGrupeZaTermin(7L);
     }
 
     private static TerminRequest zahtevZaTermin() {
         TerminRequest request = new TerminRequest();
-        request.setDatum(LocalDate.of(2027, 6, 1));
+        request.setDatum(LocalDate.now().plusDays(1));
         request.setVremePocetak(LocalTime.of(10, 0));
         request.setVremeKraja(LocalTime.of(12, 0));
         request.setPredmetId(4L);

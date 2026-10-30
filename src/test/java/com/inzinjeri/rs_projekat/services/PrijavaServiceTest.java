@@ -1,4 +1,4 @@
-package com.inzinjeri.rs_projekat.controllers;
+package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
@@ -16,12 +16,12 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class PrijavaControllerTest {
+class PrijavaServiceTest {
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final StudentRepository studenti = mock(StudentRepository.class);
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final PredajePredmetRepository predmeti = mock(PredajePredmetRepository.class);
-    private final PrijavaController controller = new PrijavaController(prijave, studenti, grupe, predmeti);
+    private final PrijavaService service = new PrijavaService(prijave, studenti, grupe, predmeti);
     private final Authentication studentAuth = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesorAuth = auth("profesor@test.rs", "ROLE_PROFESOR");
 
@@ -38,7 +38,7 @@ class PrijavaControllerTest {
             return prijava;
         });
 
-        assertEquals(8L, controller.prijaviSe(3L, studentAuth));
+        assertEquals(8L, service.prijaviSe(3L, studentAuth));
         verify(prijave).save(argThat(prijava -> prijava.getStudent() == student
                 && prijava.getGrupa() == grupa && "NA_CEKANJU".equals(prijava.getStatus())));
     }
@@ -51,7 +51,7 @@ class PrijavaControllerTest {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
         when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
 
-        assertStatus(HttpStatus.CONFLICT, () -> controller.prijaviSe(3L, studentAuth));
+        assertStatus(HttpStatus.CONFLICT, () -> service.prijaviSe(3L, studentAuth));
         verify(prijave, never()).save(any());
     }
 
@@ -65,7 +65,7 @@ class PrijavaControllerTest {
         when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
         when(prijave.save(prijava)).thenReturn(prijava);
 
-        assertEquals("PRIHVACEN", controller.prihvati(8L, profesorAuth).getStatus());
+        assertEquals("PRIHVACEN", service.prihvati(8L, profesorAuth).getStatus());
         assertEquals("PRIHVACEN", prijava.getStatus());
         verify(prijave).save(prijava);
     }
@@ -76,9 +76,9 @@ class PrijavaControllerTest {
         prijava.setGrupa(grupa());
         prijava.setStatus("NA_CEKANJU");
         when(prijave.findById(8L)).thenReturn(Optional.of(prijava));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.prihvati(8L, profesorAuth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.prihvati(8L, profesorAuth));
         when(predmeti.getPredmetiZaPredavaca(studentAuth.getName())).thenReturn(List.of(veza()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.prihvati(8L, studentAuth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.prihvati(8L, studentAuth));
         verify(prijave, never()).save(any());
     }
 
@@ -93,7 +93,54 @@ class PrijavaControllerTest {
         when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
         when(prijave.findByGrupa_Id(3L)).thenReturn(List.of(prijava));
 
-        assertEquals(8L, controller.prijaveZaGrupu(3L, profesorAuth).getFirst().getId());
+        assertEquals(8L, service.prijavaZaGrupu(3L, profesorAuth).getFirst().getId());
+    }
+
+    @Test
+    void mojePrijaveSuFiltriranePoEmailuStudenta() {
+        Student student = new Student();
+        PrijavljenStudent prijava = new PrijavljenStudent();
+        when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(student));
+        when(prijave.getStudentByEmail(studentAuth.getName())).thenReturn(List.of(prijava));
+
+        assertEquals(List.of(prijava), service.moje(studentAuth));
+        verify(prijave).getStudentByEmail("student@test.rs");
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.moje(profesorAuth));
+        verify(prijave, never()).getStudentByEmail(profesorAuth.getName());
+    }
+
+    @Test
+    void prihvacenaPrijavaNeMozePonovoDaSePrihvati() {
+        PrijavljenStudent prijava = new PrijavljenStudent();
+        prijava.setGrupa(grupa());
+        prijava.setStatus("PRIHVACEN");
+        when(prijave.findById(8L)).thenReturn(Optional.of(prijava));
+        when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
+
+        assertStatus(HttpStatus.CONFLICT, () -> service.prihvati(8L, profesorAuth));
+        verify(prijave, never()).save(any());
+    }
+
+    @Test
+    void nepostojeciPodaciINepotpunaGrupaSeOdbijaju() {
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijaviSe(3L, studentAuth));
+        when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(new Student()));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.prijaviSe(3L, studentAuth));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.prijavaZaGrupu(3L, profesorAuth));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.prihvati(8L, profesorAuth));
+        Grupa grupa = grupa();
+        grupa.setTermin(null);
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        assertStatus(HttpStatus.CONFLICT, () -> service.prijaviSe(3L, studentAuth));
+        verify(prijave, never()).save(any());
+    }
+
+    @Test
+    void tudjiProfesorNeVidiPrijaveGrupe() {
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijavaZaGrupu(3L, profesorAuth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijavaZaGrupu(3L, studentAuth));
+        verify(prijave, never()).findByGrupa_Id(any());
     }
 
     private static Grupa grupa() {

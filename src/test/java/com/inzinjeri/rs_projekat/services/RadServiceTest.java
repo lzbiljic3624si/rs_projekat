@@ -1,4 +1,4 @@
-package com.inzinjeri.rs_projekat.controllers;
+package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
 import com.inzinjeri.rs_projekat.controllers.request.PredajaRadaRequest;
@@ -15,6 +15,8 @@ import com.inzinjeri.rs_projekat.repositories.RadRepository;
 import com.inzinjeri.rs_projekat.repositories.StudentRepository;
 import com.inzinjeri.rs_projekat.repositories.ZadatakRepository;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.mockito.ArgumentCaptor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -37,14 +39,14 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-class RadControllerTest {
+class RadServiceTest {
 
     private final RadRepository radovi = mock(RadRepository.class);
     private final StudentRepository studenti = mock(StudentRepository.class);
     private final ZadatakRepository zadaci = mock(ZadatakRepository.class);
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predmeti = mock(PredajePredmetRepository.class);
-    private final RadController controller = new RadController(radovi, studenti, zadaci, prijave, predmeti);
+    private final RadService service = new RadService(radovi, studenti, zadaci, prijave, predmeti);
     private final Authentication auth = new UsernamePasswordAuthenticationToken("student@example.com", null);
     private final Authentication profesor = new UsernamePasswordAuthenticationToken("profesor@example.com", null);
 
@@ -56,13 +58,13 @@ class RadControllerTest {
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
         when(radovi.findByPredmetIdAndStatus(4L, "PREDAT")).thenReturn(List.of(rad));
 
-        assertEquals(9L, controller.predati(4L, profesor).getFirst().getId());
+        assertEquals(9L, service.predati(4L, profesor).getFirst().getId());
         verify(radovi).findByPredmetIdAndStatus(4L, "PREDAT");
     }
 
     @Test
     void profesorNeVidiRadoveTudjegPredmeta() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.predati(4L, profesor));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.predati(4L, profesor));
         verify(radovi, never()).findByPredmetIdAndStatus(any(), any());
     }
 
@@ -77,7 +79,7 @@ class RadControllerTest {
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
         when(radovi.save(rad)).thenReturn(rad);
 
-        var odgovor = controller.oceni(9L, request, profesor);
+        var odgovor = service.oceni(9L, request, profesor);
 
         assertEquals(8.5, rad.getPoeni());
         assertEquals("OCENJEN", rad.getStatus());
@@ -93,17 +95,17 @@ class RadControllerTest {
         OcenaRadaRequest request = new OcenaRadaRequest();
         request.setPoeni(5.0);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.oceni(9L, request, profesor));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.oceni(9L, request, profesor));
 
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
         rad.setStatus("PREUZET");
-        assertStatus(HttpStatus.CONFLICT, () -> controller.oceni(9L, request, profesor));
+        assertStatus(HttpStatus.CONFLICT, () -> service.oceni(9L, request, profesor));
 
         rad.setStatus("PREDAT");
         request.setPoeni(-1.0);
-        assertStatus(HttpStatus.BAD_REQUEST, () -> controller.oceni(9L, request, profesor));
+        assertStatus(HttpStatus.BAD_REQUEST, () -> service.oceni(9L, request, profesor));
         request.setPoeni(Double.NaN);
-        assertStatus(HttpStatus.BAD_REQUEST, () -> controller.oceni(9L, request, profesor));
+        assertStatus(HttpStatus.BAD_REQUEST, () -> service.oceni(9L, request, profesor));
         verify(radovi, never()).save(any(Rad.class));
     }
 
@@ -127,7 +129,7 @@ class RadControllerTest {
         rad.setStatus("OCENJEN");
         when(radovi.getRadByStudentEmail(auth.getName())).thenReturn(List.of(rad));
 
-        var odgovor = controller.moj(auth).getFirst();
+        var odgovor = service.moj(auth).getFirst();
 
         assertEquals(7L, odgovor.getId());
         assertEquals("Ana", odgovor.getStudent().getIme());
@@ -140,8 +142,8 @@ class RadControllerTest {
         assertEquals("https://github.com/predmet/zadatak", odgovor.getZadatak().getRepoPutanja());
         var termin = odgovor.getZadatak().getGrupa().getTermin();
         assertEquals(4L, termin.getPredmet().getId());
-        assertEquals(LocalTime.of(10, 0), termin.getVremePocetka());
-        assertEquals(LocalTime.of(12, 0), termin.getVremeKraja());
+        assertEquals(LocalTime.of(10, 0), termin.getVremePocetak());
+        assertEquals(LocalTime.of(12, 0), termin.getVremeKraj());
         verify(radovi).getRadByStudentEmail("student@example.com");
     }
 
@@ -158,7 +160,7 @@ class RadControllerTest {
             return rad;
         });
 
-        assertEquals(9L, controller.preuzmi(5L, auth));
+        assertEquals(9L, service.preuzmi(5L, auth));
 
         var sacuvanRad = ArgumentCaptor.forClass(Rad.class);
         verify(radovi).save(sacuvanRad.capture());
@@ -173,23 +175,23 @@ class RadControllerTest {
     void preuzmiOdbijaNeprijavljenogStudentaIDuplikat() {
         Student student = student();
         Zadatak zadatak = zadatak();
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.preuzmi(5L, auth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.preuzmi(5L, auth));
 
         when(studenti.pronadjiPoEmailu(auth.getName())).thenReturn(Optional.of(student));
-        assertStatus(HttpStatus.NOT_FOUND, () -> controller.preuzmi(5L, auth));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.preuzmi(5L, auth));
 
         zadatak.setGrupa(null);
         when(zadaci.findById(5L)).thenReturn(Optional.of(zadatak));
-        assertStatus(HttpStatus.CONFLICT, () -> controller.preuzmi(5L, auth));
+        assertStatus(HttpStatus.CONFLICT, () -> service.preuzmi(5L, auth));
 
         Grupa grupa = new Grupa();
         grupa.setId(3L);
         zadatak.setGrupa(grupa);
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.preuzmi(5L, auth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.preuzmi(5L, auth));
 
         when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
         when(radovi.existsByStudent_IdAndZadatak_Id(2L, 5L)).thenReturn(true);
-        assertStatus(HttpStatus.CONFLICT, () -> controller.preuzmi(5L, auth));
+        assertStatus(HttpStatus.CONFLICT, () -> service.preuzmi(5L, auth));
         verify(radovi, never()).save(any(Rad.class));
     }
 
@@ -204,7 +206,7 @@ class RadControllerTest {
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
         when(radovi.save(rad)).thenReturn(rad);
 
-        var odgovor = controller.predaj(9L, request, auth);
+        var odgovor = service.predaj(9L, request, auth);
 
         assertEquals("https://github.com/student/resenje", rad.getRepoPutanjaResenja());
         assertNotNull(rad.getVremePredaje());
@@ -218,7 +220,7 @@ class RadControllerTest {
     void predajOdbijaTudjiIIzmenjeniRad() {
         PredajaRadaRequest request = new PredajaRadaRequest();
         request.setRepoPutanjaResenja("https://github.com/student/resenje");
-        assertStatus(HttpStatus.NOT_FOUND, () -> controller.predaj(9L, request, auth));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.predaj(9L, request, auth));
 
         Rad rad = new Rad();
         Student drugiStudent = student();
@@ -226,12 +228,58 @@ class RadControllerTest {
         rad.setStudent(drugiStudent);
         rad.setStatus("PREUZET");
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.predaj(9L, request, auth));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.predaj(9L, request, auth));
 
         rad.setStudent(student());
         rad.setStatus("PREDAT");
-        assertStatus(HttpStatus.CONFLICT, () -> controller.predaj(9L, request, auth));
+        assertStatus(HttpStatus.CONFLICT, () -> service.predaj(9L, request, auth));
         verify(radovi, never()).save(any(Rad.class));
+    }
+
+    @ParameterizedTest
+    @MethodSource("neispravniPoeni")
+    void neispravniPoeniNeMenjajuRad(Double poeni) {
+        Rad rad = new Rad();
+        rad.setZadatak(zadatakSaPredmetom());
+        rad.setStatus("PREDAT");
+        OcenaRadaRequest request = new OcenaRadaRequest();
+        request.setPoeni(poeni);
+        when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
+
+        assertStatus(HttpStatus.BAD_REQUEST, () -> service.oceni(9L, request, profesor));
+        assertEquals("PREDAT", rad.getStatus());
+        assertNull(rad.getPoeni());
+        verify(radovi, never()).save(any());
+    }
+
+    static Double[] neispravniPoeni() {
+        return new Double[] {null, -1.0, Double.NaN, Double.POSITIVE_INFINITY, Double.NEGATIVE_INFINITY};
+    }
+
+    @Test
+    void nulaPoenaJeDozvoljena() {
+        Rad rad = new Rad();
+        rad.setZadatak(zadatakSaPredmetom());
+        rad.setStatus("PREDAT");
+        OcenaRadaRequest request = new OcenaRadaRequest();
+        request.setPoeni(0.0);
+        when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
+        when(radovi.save(rad)).thenReturn(rad);
+
+        assertEquals(0.0, service.oceni(9L, request, profesor).getPoeni());
+        assertEquals("OCENJEN", rad.getStatus());
+    }
+
+    @Test
+    void ocenaOdbijaNepostojeciRadINepotpuneVeze() {
+        OcenaRadaRequest request = new OcenaRadaRequest();
+        request.setPoeni(5.0);
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.oceni(9L, request, profesor));
+        when(radovi.findById(9L)).thenReturn(Optional.of(new Rad()));
+        assertStatus(HttpStatus.CONFLICT, () -> service.oceni(9L, request, profesor));
+        verify(radovi, never()).save(any());
     }
 
     private static Student student() {

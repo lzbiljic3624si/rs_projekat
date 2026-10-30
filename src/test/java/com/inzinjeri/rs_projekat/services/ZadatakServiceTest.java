@@ -1,4 +1,4 @@
-package com.inzinjeri.rs_projekat.controllers;
+package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.controllers.request.ZadatakRequest;
 import com.inzinjeri.rs_projekat.model.*;
@@ -17,13 +17,13 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-class ZadatakControllerTest {
+class ZadatakServiceTest {
     private final ZadatakRepository zadaci = mock(ZadatakRepository.class);
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final StudentRepository studenti = mock(StudentRepository.class);
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
-    private final ZadatakController controller = new ZadatakController(zadaci, grupe, studenti, prijave, predaje);
+    private final ZadatakService service = new ZadatakService(zadaci, grupe, studenti, prijave, predaje);
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
 
@@ -39,9 +39,9 @@ class ZadatakControllerTest {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
         when(studenti.pronadjiPoEmailu(student.getName())).thenReturn(Optional.of(studentModel));
         when(prijave.existsByStudent_IdAndGrupa_IdAndStatus(2L, 3L, "PRIHVACEN")).thenReturn(true);
-        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(List.of(zadatak));
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
 
-        var odgovor = controller.zaGrupu(3L, student);
+        var odgovor = service.zaGrupu(3L, student);
         assertEquals(9L, odgovor.getId());
         assertEquals("Prvi zadatak", odgovor.getNaziv());
         assertEquals(3L, odgovor.getGrupa().getId());
@@ -50,7 +50,7 @@ class ZadatakControllerTest {
     @Test
     void studentBezPrihvacenePrijaveNeVidiZadatke() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.zaGrupu(3L, student));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.zaGrupu(3L, student));
         verify(zadaci, never()).pronadjiPoGrupi(any());
     }
 
@@ -66,7 +66,7 @@ class ZadatakControllerTest {
             return zadatak;
         });
 
-        assertEquals(9L, controller.dodaj(request, profesor));
+        assertEquals(9L, service.dodaj(request, profesor));
         verify(zadaci).save(argThat(zadatak -> zadatak.getGrupa() == grupa
                 && "Prvi zadatak".equals(zadatak.getNaziv())
                 && "https://github.com/test/zadatak".equals(zadatak.getRepoPutanja())));
@@ -75,9 +75,9 @@ class ZadatakControllerTest {
     @Test
     void tudjiProfesorIStudentNeMoguDaDodajuZadatak() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.dodaj(request(), profesor));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodaj(request(), profesor));
         when(predaje.getPredmetiZaPredavaca(student.getName())).thenReturn(List.of(veza()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> controller.dodaj(request(), student));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodaj(request(), student));
         verify(zadaci, never()).save(any());
     }
 
@@ -87,8 +87,48 @@ class ZadatakControllerTest {
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(zadaci.existsByRepoPutanja("https://github.com/test/zadatak")).thenReturn(true);
 
-        assertStatus(HttpStatus.CONFLICT, () -> controller.dodaj(request(), profesor));
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
         verify(zadaci, never()).save(any());
+    }
+
+    @Test
+    void grupaBezZadatkaVraca404() {
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
+
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.zaGrupu(3L, profesor));
+    }
+
+    @Test
+    void grupaMozeDaImaSamoJedanZadatak() {
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
+        when(zadaci.existsByGrupa_Id(3L)).thenReturn(true);
+
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
+        verify(zadaci, never()).save(any());
+    }
+
+    @Test
+    void nepostojecaGrupaINepotpunaVezaSeOdbijaju() {
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.zaGrupu(3L, profesor));
+        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodaj(request(), profesor));
+        Grupa grupa = grupa();
+        grupa.setTermin(null);
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        assertStatus(HttpStatus.CONFLICT, () -> service.zaGrupu(3L, profesor));
+        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
+        verify(zadaci, never()).save(any());
+    }
+
+    @Test
+    void postojeciStudentBezPrihvacenePrijaveNemaPristup() {
+        Student studentModel = new Student();
+        studentModel.setId(2L);
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        when(studenti.pronadjiPoEmailu(student.getName())).thenReturn(Optional.of(studentModel));
+        assertStatus(HttpStatus.FORBIDDEN, () -> service.zaGrupu(3L, student));
+        verify(zadaci, never()).pronadjiPoGrupi(any());
     }
 
     private static ZadatakRequest request() {
