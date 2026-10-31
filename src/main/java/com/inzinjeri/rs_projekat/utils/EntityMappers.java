@@ -2,10 +2,15 @@ package com.inzinjeri.rs_projekat.utils;
 
 import com.inzinjeri.rs_projekat.controllers.response.*;
 import com.inzinjeri.rs_projekat.model.*;
+import com.inzinjeri.rs_projekat.services.AuthService;
 
 public final class EntityMappers {
 
     private EntityMappers() {
+    }
+
+    public static LoginResponse toLoginResponse(AuthService.Prijava prijava) {
+        return new LoginResponse(prijava.token(), prijava.istice(), prijava.uloga());
     }
 
     public static RokResponse toResponse(Rok rok) {

@@ -29,11 +29,16 @@ public class Seeder implements CommandLineRunner {
     private final ZadatakRepository zadatakRepository;
     private final RadRepository radRepository;
     private final PasswordEncoder passwordEncoder;
+    private final KorisnikRepository korisnikRepository;
 
     @Override
     public void run(String... args) throws Exception {
-        // Baza se ne brise izmedju pokretanja (ddl-auto=update), pa bi ponovni seed pukao na unique kolonama
+        // Ako podaci vec postoje, samo proveravamo da li postoje korisnicki nalozi.
         if (studentRepository.count() > 0) {
+            napraviKorisnike(
+                    studentRepository.findAll(),
+                    profesorRepository.findAll()
+            );
             return;
         }
 
@@ -136,6 +141,9 @@ public class Seeder implements CommandLineRunner {
             studentList.add(studentRepository.save(s));
         }
 
+        // Kreiranje korisnickih naloga
+        napraviKorisnike(studentList, profesorList);
+
         for (int i = 1; i <= 5; i++) {
             PredajePredmet pp = new PredajePredmet();
             pp.setProfesor(profesorList.get(i - 1));
@@ -170,6 +178,41 @@ public class Seeder implements CommandLineRunner {
             r.setPoeni(i == 4 ? 85.0 : null);
             r.setStatus(i == 4 ? "OCENJEN" : i % 2 == 0 ? "PREDAT" : "PREUZET");
             radRepository.save(r);
+        }
+    }
+
+    private void napraviKorisnike(
+            List<Student> studenti,
+            List<Profesor> profesori
+    ){
+        // Kreiranje korisnickih naloga za studente
+        for (Student student : studenti) {
+
+            if (!korisnikRepository.existsByEmail(student.getEmail())) {
+
+                Korisnik korisnik = new Korisnik();
+                korisnik.setEmail(student.getEmail());
+                korisnik.setPasswordHash(student.getPasswordHash());
+                korisnik.setUloga(Uloga.STUDENT);
+                korisnik.setStudent(student);
+
+                korisnikRepository.save(korisnik);
+            }
+        }
+
+        // Kreiranje korisnickih naloga za profesore
+        for (Profesor profesor : profesori) {
+
+            if (!korisnikRepository.existsByEmail(profesor.getEmail())) {
+
+                Korisnik korisnik = new Korisnik();
+                korisnik.setEmail(profesor.getEmail());
+                korisnik.setPasswordHash(profesor.getPasswordHash());
+                korisnik.setUloga(Uloga.PROFESOR);
+                korisnik.setProfesor(profesor);
+
+                korisnikRepository.save(korisnik);
+            }
         }
     }
 }

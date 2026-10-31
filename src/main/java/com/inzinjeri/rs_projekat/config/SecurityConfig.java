@@ -1,3 +1,4 @@
+
 package com.inzinjeri.rs_projekat.config;
 
 import com.inzinjeri.rs_projekat.model.Uloga;
@@ -38,39 +39,60 @@ import java.util.List;
 @EnableMethodSecurity
 @EnableConfigurationProperties(SecurityProperties.class)
 public class SecurityConfig {
+
     public static final String CLAIM_ULOGA = "uloga";
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        http.csrf(AbstractHttpConfigurer::disable)
+        http
+                .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
-                .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/error").permitAll()
-                        .requestMatchers(HttpMethod.POST, "/api/predmet/add", "/api/raspored/**", "/api/zadaci")
-                        .hasRole(Uloga.PROFESOR.name())
-                        // Vlasnistvo i mesovite studentske/profesorske operacije proveravaju kontroleri.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/predmet/add",
+                                "/api/raspored/**",
+                                "/api/zadaci"
+                        ).hasRole(Uloga.PROFESOR.name())
                         .anyRequest().authenticated())
-                .oauth2ResourceServer(o -> o.jwt(jwt -> jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                .oauth2ResourceServer(oauth ->
+                        oauth.jwt(jwt ->
+                                jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+
         return http.build();
     }
 
     private JwtAuthenticationConverter jwtAuthenticationConverter() {
-        JwtGrantedAuthoritiesConverter authorities = new JwtGrantedAuthoritiesConverter();
+        JwtGrantedAuthoritiesConverter authorities =
+                new JwtGrantedAuthoritiesConverter();
+
         authorities.setAuthoritiesClaimName(CLAIM_ULOGA);
         authorities.setAuthorityPrefix("ROLE_");
-        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+
+        JwtAuthenticationConverter converter =
+                new JwtAuthenticationConverter();
+
         converter.setJwtGrantedAuthoritiesConverter(authorities);
+
         return converter;
     }
 
     @Bean
     public SecretKey jwtKey(SecurityProperties props) {
-        byte[] secret = props.jwtSecret() == null ? new byte[0] : props.jwtSecret().getBytes(StandardCharsets.UTF_8);
+        byte[] secret = props.jwtSecret() == null
+                ? new byte[0]
+                : props.jwtSecret().getBytes(StandardCharsets.UTF_8);
+
         if (secret.length < 32) {
-            throw new IllegalStateException("app.security.jwt-secret mora imati najmanje 32 bajta");
+            throw new IllegalStateException(
+                    "app.security.jwt-secret mora imati najmanje 32 bajta");
         }
+
         return new SecretKeySpec(secret, "HmacSHA256");
     }
 
@@ -81,25 +103,48 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(SecretKey jwtKey) {
-        return NimbusJwtDecoder.withSecretKey(jwtKey).macAlgorithm(MacAlgorithm.HS256).build();
+        return NimbusJwtDecoder.withSecretKey(jwtKey)
+                .macAlgorithm(MacAlgorithm.HS256)
+                .build();
     }
 
     @Bean
     public PasswordEncoder passwordEncoder() {
-        DelegatingPasswordEncoder encoder = (DelegatingPasswordEncoder) PasswordEncoderFactories.createDelegatingPasswordEncoder();
-        // Postojeci podaci imaju BCrypt hash bez {bcrypt} prefiksa.
-        encoder.setDefaultPasswordEncoderForMatches(new BCryptPasswordEncoder());
+        DelegatingPasswordEncoder encoder =
+                (DelegatingPasswordEncoder) PasswordEncoderFactories
+                        .createDelegatingPasswordEncoder();
+
+        // Podrška za postojeće BCrypt hash-eve bez {bcrypt} prefiksa.
+        encoder.setDefaultPasswordEncoderForMatches(
+                new BCryptPasswordEncoder());
+
         return encoder;
     }
 
     @Bean
-    public CorsConfigurationSource corsConfigurationSource(SecurityProperties props) {
+    public CorsConfigurationSource corsConfigurationSource(
+            SecurityProperties props) {
+
         CorsConfiguration cors = new CorsConfiguration();
+
         cors.setAllowedOriginPatterns(props.corsOrigins());
-        cors.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
-        cors.setAllowedHeaders(List.of("Authorization", "Content-Type"));
-        UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+        cors.setAllowedMethods(List.of(
+                "GET",
+                "POST",
+                "PUT",
+                "DELETE",
+                "OPTIONS"
+        ));
+        cors.setAllowedHeaders(List.of(
+                "Authorization",
+                "Content-Type"
+        ));
+
+        UrlBasedCorsConfigurationSource source =
+                new UrlBasedCorsConfigurationSource();
+
         source.registerCorsConfiguration("/**", cors);
+
         return source;
     }
 }
