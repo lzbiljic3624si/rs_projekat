@@ -1,7 +1,7 @@
 
 
-PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo dva mpetrovic
-PITANJE: da li nam je potrebna forma za kreiranje naloga
-PITANJE: da li su nam neophodni exceptions
+PITANJE: sta ako imamo Marina i Marija i obe se prezivaju Petrovic i onda imamo dva mpetrovic - soptveni mehanizam
+PITANJE: da li nam je potrebna forma za kreiranje naloga - DA (+ controler za svaki model)
+PITANJE: da li su nam neophodni exceptions - DA
 
-Proveriti da li da dodajemo ENUM-e u statuse  -> Za sada necemo
+Proveriti da li da dodajemo ENUM-e u statuse  -> Ipak ocemo
