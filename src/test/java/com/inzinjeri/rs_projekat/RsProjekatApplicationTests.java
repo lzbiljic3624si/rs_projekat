@@ -10,7 +10,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 	GrupaRepository.class, PredajePredmetRepository.class, PredmetRepository.class,
 	PrijavljenStudentRepository.class, ProfesorRepository.class, RadRepository.class,
 	RokRepository.class, StudentRepository.class, TerminRepository.class,
-	UcionicaRepository.class, ZadatakRepository.class
+	UcionicaRepository.class, ZadatakRepository.class, KorisnikRepository.class
 })
 class RsProjekatApplicationTests {
 	@MockitoBean

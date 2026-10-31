@@ -1,5 +1,6 @@
 package com.inzinjeri.rs_projekat.controllers;
 
+import com.inzinjeri.rs_projekat.exceptions.GlobalExceptionHandler;
 import com.inzinjeri.rs_projekat.controllers.response.ZadatakResponse;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.services.*;
@@ -32,7 +33,41 @@ class ControllerHttpTest {
     private final Authentication auth = new UsernamePasswordAuthenticationToken("student@test.rs", null);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
             new PredmetController(predmeti), new PrijavaController(prijave), new RadController(radovi),
-            new RasporedController(raspored), new ZadatakController(zadaci)).build();
+            new RasporedController(raspored), new ZadatakController(zadaci))
+            .setControllerAdvice(new GlobalExceptionHandler()).build();
+
+    @Test
+    void validacijaVracaProblemDetailSaGreskamaPoPoljima() throws Exception {
+        mvc.perform(post("/api/predmet/add").contentType("application/json").content("{}"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(400))
+                .andExpect(jsonPath("$.detail").value("Neispravni podaci u zahtevu"))
+                .andExpect(jsonPath("$.errors.naziv").isNotEmpty())
+                .andExpect(jsonPath("$.errors.jezik").isNotEmpty());
+        verifyNoInteractions(predmeti);
+    }
+
+    @Test
+    void neispravanJsonVracaProblemDetail() throws Exception {
+        mvc.perform(post("/api/predmet/add").contentType("application/json").content("{neispravno"))
+                .andExpect(status().isBadRequest())
+                .andExpect(content().contentTypeCompatibleWith("application/problem+json"))
+                .andExpect(jsonPath("$.status").value(400));
+        verifyNoInteractions(predmeti);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"", ",\"uslov\":null", ",\"uslov\":\"\"", ",\"uslov\":0", ",\"uslov\":\"0\""})
+    void predmetMozeDaSeKreiraBezUslova(String uslovPolje) throws Exception {
+        Predmet predmet = new Predmet();
+        predmet.setId(1L);
+        when(predmeti.save(any())).thenReturn(predmet);
+
+        mvc.perform(post("/api/predmet/add").contentType("application/json")
+                        .content("{\"naziv\":\"Uvod u programiranje\",\"jezik\":\"C\"" + uslovPolje + "}"))
+                .andExpect(status().isCreated());
+    }
 
     @Test
     void predmetDodavanjeICitanje() throws Exception {
@@ -89,7 +124,7 @@ class ControllerHttpTest {
     void radoviCitanjePreuzimanjePredajaIOcena() throws Exception {
         Rad rad = new Rad();
         rad.setId(9L);
-        rad.setStatus("OCENJEN");
+        rad.setStatus(StatusRada.OCENJEN);
         rad.setPoeni(8.5);
         when(radovi.moj(auth)).thenReturn(List.of(rad));
         when(radovi.predati(4L, auth)).thenReturn(List.of(rad));

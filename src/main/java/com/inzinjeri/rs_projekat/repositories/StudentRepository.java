@@ -9,6 +9,8 @@ import java.util.Optional;
 
 public interface StudentRepository extends JpaRepository<Student, Long> {
 
+    boolean existsByEmailIgnoreCase(String email);
+
     @Query("SELECT s FROM Student s WHERE s.brIndeksa = :brIndeksa")
     Optional<Student> pronadjiPoBrojuIndeksa(@Param("brIndeksa") String brIndeksa);
 

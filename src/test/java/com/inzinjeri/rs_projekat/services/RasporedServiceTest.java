@@ -1,14 +1,16 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.BadRequestException;
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.*;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -75,15 +77,15 @@ class RasporedServiceTest {
     void terminOdbijaLoseVremeZauzetuUcionicuITudjegProfesora() {
         TerminRequest request = zahtevZaTermin();
         request.setVremeKraja(LocalTime.of(10, 0));
-        assertStatus(HttpStatus.BAD_REQUEST, () -> service.dodajTermin(request, profesor));
+        assertThrows(BadRequestException.class, () -> service.dodajTermin(request, profesor));
         request.setVremeKraja(LocalTime.of(12, 0));
         when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajTermin(request, profesor));
+        assertThrows(ForbiddenException.class, () -> service.dodajTermin(request, profesor));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(ucionice.findById(5L)).thenReturn(Optional.of(ucionica()));
         when(rokovi.findById(6L)).thenReturn(Optional.of(rok()));
         when(termini.postojiPreklapanje(5L, request.getDatum(), request.getVremePocetak(), request.getVremeKraja())).thenReturn(true);
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodajTermin(request, profesor));
+        assertThrows(ConflictException.class, () -> service.dodajTermin(request, profesor));
         verify(termini, never()).save(any());
     }
 
@@ -111,7 +113,7 @@ class RasporedServiceTest {
         RokRequest request = new RokRequest();
         request.setNaziv("Junski");
         request.setSkolskaGodina(2026);
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajRok(request, student));
+        assertThrows(ForbiddenException.class, () -> service.dodajRok(request, student));
         verify(rokovi, never()).save(any());
     }
 
@@ -139,16 +141,16 @@ class RasporedServiceTest {
     void duplikatiRokaUcioniceIGrupeSeNeCuvaju() {
         RokRequest rok = new RokRequest(); rok.setNaziv("Junski"); rok.setSkolskaGodina(2026);
         when(rokovi.existsByNazivAndSkolskaGodina("Junski", 2026)).thenReturn(true);
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodajRok(rok, profesor));
+        assertThrows(ConflictException.class, () -> service.dodajRok(rok, profesor));
         UcionicaRequest ucionica = new UcionicaRequest(); ucionica.setNaziv("Lab 1");
         when(ucionice.pronadjiPoNazivu("Lab 1")).thenReturn(Optional.of(ucionica()));
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodajUcionicu(ucionica, profesor));
+        assertThrows(ConflictException.class, () -> service.dodajUcionicu(ucionica, profesor));
         Termin termin = new Termin(); termin.setPredmet(predmet());
         GrupaRequest grupa = new GrupaRequest(); grupa.setNaziv("G1"); grupa.setTerminId(7L);
         when(termini.findById(7L)).thenReturn(Optional.of(termin));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(grupe.existsByNaziv("G1")).thenReturn(true);
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodajGrupu(grupa, profesor));
+        assertThrows(ConflictException.class, () -> service.dodajGrupu(grupa, profesor));
         verify(rokovi, never()).save(any());
         verify(ucionice, never()).save(any());
         verify(grupe, never()).save(any());
@@ -157,33 +159,33 @@ class RasporedServiceTest {
     @Test
     void terminProveravaSveObavezneVeze() {
         TerminRequest request = zahtevZaTermin();
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.dodajTermin(request, profesor));
         when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.dodajTermin(request, profesor));
         when(ucionice.findById(5L)).thenReturn(Optional.of(ucionica()));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajTermin(request, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.dodajTermin(request, profesor));
         verify(termini, never()).save(any());
     }
 
     @Test
     void grupaProveravaTerminIPredmet() {
         GrupaRequest request = new GrupaRequest(); request.setNaziv("G1"); request.setTerminId(7L);
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodajGrupu(request, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.dodajGrupu(request, profesor));
         when(termini.findById(7L)).thenReturn(Optional.of(new Termin()));
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodajGrupu(request, profesor));
+        assertThrows(ConflictException.class, () -> service.dodajGrupu(request, profesor));
         verify(grupe, never()).save(any());
     }
 
     @Test
     void studentNeMozeDaKreiraUcionicuTerminNiGrupu() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajUcionicu(new UcionicaRequest(), student));
+        assertThrows(ForbiddenException.class, () -> service.dodajUcionicu(new UcionicaRequest(), student));
         when(predmeti.findById(4L)).thenReturn(Optional.of(predmet()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajTermin(zahtevZaTermin(), student));
+        assertThrows(ForbiddenException.class, () -> service.dodajTermin(zahtevZaTermin(), student));
         Termin termin = new Termin(); termin.setPredmet(predmet());
         when(termini.findById(7L)).thenReturn(Optional.of(termin));
         GrupaRequest grupa = new GrupaRequest(); grupa.setTerminId(7L);
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodajGrupu(grupa, student));
+        assertThrows(ForbiddenException.class, () -> service.dodajGrupu(grupa, student));
         verify(ucionice, never()).save(any());
         verify(termini, never()).save(any());
         verify(grupe, never()).save(any());
@@ -240,7 +242,4 @@ class RasporedServiceTest {
         return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority(uloga)));
     }
 
-    private static void assertStatus(HttpStatus status, org.junit.jupiter.api.function.Executable action) {
-        assertEquals(status, assertThrows(ResponseStatusException.class, action).getStatusCode());
-    }
 }

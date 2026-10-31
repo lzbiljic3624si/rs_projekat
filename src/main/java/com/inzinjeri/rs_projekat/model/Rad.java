@@ -2,6 +2,8 @@ package com.inzinjeri.rs_projekat.model;
 
 import jakarta.persistence.*;
 import lombok.Data;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.LocalDateTime;
 
@@ -27,6 +29,8 @@ public class Rad {
     private String repoPutanjaResenja;
     private Double poeni;
 
+    @Enumerated(EnumType.STRING)
+    @JdbcTypeCode(SqlTypes.VARCHAR) // Zadrzava postojecu tekstualnu kolonu umesto MySQL ENUM tipa.
     @Column(nullable = false)
-    private String status;
+    private StatusRada status;
 }

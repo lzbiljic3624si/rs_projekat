@@ -9,6 +9,5 @@ public class PredmetRequest {
     private String naziv;
     @NotBlank
     private String jezik;
-    @NotBlank
     private String uslov;
 }

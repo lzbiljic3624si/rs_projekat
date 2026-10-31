@@ -1,6 +1,7 @@
 package com.inzinjeri.rs_projekat.repositories;
 
 import com.inzinjeri.rs_projekat.model.Rad;
+import com.inzinjeri.rs_projekat.model.StatusRada;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -17,5 +18,5 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
     boolean existsByStudent_IdAndZadatak_Id(Long studentId, Long zadatakId);
 
     @Query("select r from Rad r where r.zadatak.grupa.termin.predmet.id = :predmetId and r.status = :status")
-    List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") String status);
+    List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") StatusRada status);
 }

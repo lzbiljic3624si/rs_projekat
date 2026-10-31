@@ -1,13 +1,14 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -51,7 +52,7 @@ class PrijavaServiceTest {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
         when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
 
-        assertStatus(HttpStatus.CONFLICT, () -> service.prijaviSe(3L, studentAuth));
+        assertThrows(ConflictException.class, () -> service.prijaviSe(3L, studentAuth));
         verify(prijave, never()).save(any());
     }
 
@@ -77,28 +78,28 @@ class PrijavaServiceTest {
 
         assertEquals(List.of(prijava), service.moje(studentAuth));
         verify(prijave).getStudentByEmail("student@test.rs");
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.moje(profesorAuth));
+        assertThrows(ForbiddenException.class, () -> service.moje(profesorAuth));
         verify(prijave, never()).getStudentByEmail(profesorAuth.getName());
     }
 
     @Test
     void nepostojeciPodaciINepotpunaGrupaSeOdbijaju() {
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijaviSe(3L, studentAuth));
+        assertThrows(ForbiddenException.class, () -> service.prijaviSe(3L, studentAuth));
         when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(new Student()));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.prijaviSe(3L, studentAuth));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.prijavaZaGrupu(3L, profesorAuth));
+        assertThrows(ResourceNotFoundException.class, () -> service.prijaviSe(3L, studentAuth));
+        assertThrows(ResourceNotFoundException.class, () -> service.prijavaZaGrupu(3L, profesorAuth));
         Grupa grupa = grupa();
         grupa.setTermin(null);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
-        assertStatus(HttpStatus.CONFLICT, () -> service.prijaviSe(3L, studentAuth));
+        assertThrows(ConflictException.class, () -> service.prijaviSe(3L, studentAuth));
         verify(prijave, never()).save(any());
     }
 
     @Test
     void tudjiProfesorNeVidiPrijaveGrupe() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijavaZaGrupu(3L, profesorAuth));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.prijavaZaGrupu(3L, studentAuth));
+        assertThrows(ForbiddenException.class, () -> service.prijavaZaGrupu(3L, profesorAuth));
+        assertThrows(ForbiddenException.class, () -> service.prijavaZaGrupu(3L, studentAuth));
         verify(prijave, never()).findByGrupa_Id(any());
     }
 
@@ -123,7 +124,4 @@ class PrijavaServiceTest {
         return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority(uloga)));
     }
 
-    private static void assertStatus(HttpStatus status, org.junit.jupiter.api.function.Executable action) {
-        assertEquals(status, assertThrows(ResponseStatusException.class, action).getStatusCode());
-    }
 }

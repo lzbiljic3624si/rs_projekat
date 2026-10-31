@@ -1,14 +1,15 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.ZadatakRequest;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 import java.util.Optional;
@@ -50,7 +51,7 @@ class ZadatakServiceTest {
     @Test
     void korisnikBezStudentskogNalogaNeVidiZadatak() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.zaGrupu(3L, student));
+        assertThrows(ForbiddenException.class, () -> service.zaGrupu(3L, student));
         verify(zadaci, never()).pronadjiPoGrupi(any());
     }
 
@@ -75,9 +76,9 @@ class ZadatakServiceTest {
     @Test
     void tudjiProfesorIStudentNeMoguDaDodajuZadatak() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodaj(request(), profesor));
+        assertThrows(ForbiddenException.class, () -> service.dodaj(request(), profesor));
         when(predaje.getPredmetiZaPredavaca(student.getName())).thenReturn(List.of(veza()));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.dodaj(request(), student));
+        assertThrows(ForbiddenException.class, () -> service.dodaj(request(), student));
         verify(zadaci, never()).save(any());
     }
 
@@ -87,7 +88,7 @@ class ZadatakServiceTest {
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(zadaci.existsByRepoPutanja("https://github.com/test/zadatak")).thenReturn(true);
 
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
+        assertThrows(ConflictException.class, () -> service.dodaj(request(), profesor));
         verify(zadaci, never()).save(any());
     }
 
@@ -96,7 +97,7 @@ class ZadatakServiceTest {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
 
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.zaGrupu(3L, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.zaGrupu(3L, profesor));
     }
 
     @Test
@@ -105,19 +106,19 @@ class ZadatakServiceTest {
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(zadaci.existsByGrupa_Id(3L)).thenReturn(true);
 
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
+        assertThrows(ConflictException.class, () -> service.dodaj(request(), profesor));
         verify(zadaci, never()).save(any());
     }
 
     @Test
     void nepostojecaGrupaINepotpunaVezaSeOdbijaju() {
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.zaGrupu(3L, profesor));
-        assertStatus(HttpStatus.NOT_FOUND, () -> service.dodaj(request(), profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.zaGrupu(3L, profesor));
+        assertThrows(ResourceNotFoundException.class, () -> service.dodaj(request(), profesor));
         Grupa grupa = grupa();
         grupa.setTermin(null);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
-        assertStatus(HttpStatus.CONFLICT, () -> service.zaGrupu(3L, profesor));
-        assertStatus(HttpStatus.CONFLICT, () -> service.dodaj(request(), profesor));
+        assertThrows(ConflictException.class, () -> service.zaGrupu(3L, profesor));
+        assertThrows(ConflictException.class, () -> service.dodaj(request(), profesor));
         verify(zadaci, never()).save(any());
     }
 
@@ -127,7 +128,7 @@ class ZadatakServiceTest {
         studentModel.setId(2L);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
         when(studenti.pronadjiPoEmailu(student.getName())).thenReturn(Optional.of(studentModel));
-        assertStatus(HttpStatus.FORBIDDEN, () -> service.zaGrupu(3L, student));
+        assertThrows(ForbiddenException.class, () -> service.zaGrupu(3L, student));
         verify(zadaci, never()).pronadjiPoGrupi(any());
     }
 
@@ -160,7 +161,4 @@ class ZadatakServiceTest {
         return new UsernamePasswordAuthenticationToken(email, null, List.of(new SimpleGrantedAuthority(uloga)));
     }
 
-    private static void assertStatus(HttpStatus status, org.junit.jupiter.api.function.Executable action) {
-        assertEquals(status, assertThrows(ResponseStatusException.class, action).getStatusCode());
-    }
 }

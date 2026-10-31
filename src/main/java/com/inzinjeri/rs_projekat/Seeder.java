@@ -114,7 +114,9 @@ public class Seeder implements CommandLineRunner {
             Profesor p = new Profesor();
             p.setIme(profesori[i - 1][0]);
             p.setPrezime(profesori[i - 1][1]);
-            p.setEmail(ParseUtils.profesorEmail(p.getIme(), p.getPrezime()));
+            p.setEmail(ParseUtils.profesorEmail(p.getIme(), p.getPrezime(), email ->
+                    profesorRepository.existsByEmailIgnoreCase(email)
+                            || korisnikRepository.existsByEmailIgnoreCase(email)));
             p.setPasswordHash(lozinka);
             profesorList.add(profesorRepository.save(p));
         }
@@ -176,7 +178,7 @@ public class Seeder implements CommandLineRunner {
             r.setVremePredaje(i % 2 == 0 ? LocalDateTime.of(2026, 1, 10 + i, 11, 0) : null);
             r.setRepoPutanjaResenja(i % 2 == 0 ? "repo/resenje" + i : null);
             r.setPoeni(i == 4 ? 85.0 : null);
-            r.setStatus(i == 4 ? "OCENJEN" : i % 2 == 0 ? "PREDAT" : "PREUZET");
+            r.setStatus(i == 4 ? StatusRada.OCENJEN : i % 2 == 0 ? StatusRada.PREDAT : StatusRada.PREUZET);
             radRepository.save(r);
         }
     }

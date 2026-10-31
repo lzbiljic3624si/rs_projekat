@@ -1,5 +1,8 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.model.Grupa;
 import com.inzinjeri.rs_projekat.model.PrijavljenStudent;
 import com.inzinjeri.rs_projekat.repositories.GrupaRepository;
@@ -7,11 +10,9 @@ import com.inzinjeri.rs_projekat.repositories.PredajePredmetRepository;
 import com.inzinjeri.rs_projekat.repositories.PrijavljenStudentRepository;
 import com.inzinjeri.rs_projekat.repositories.StudentRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -26,22 +27,13 @@ public class PrijavaService {
     @Transactional
     public Long prijaviSe(Long grupaId, Authentication auth) {
         var student = studentRepository.pronadjiPoEmailu(auth.getName())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Prijavljeni korisnik nije student"
-                ));
+                .orElseThrow(() -> new ForbiddenException("Prijavljeni korisnik nije student"));
         Grupa grupa = grupaRepository.findById(grupaId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Grupa ne postoji"
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("Grupa ne postoji"));
         predmetId(grupa);
 
         if (prijavljanStudentRepository.existsByStudent_IdAndGrupa_Id(student.getId(), grupaId)) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Student je vec prijavljen u grupu"
-            );
+            throw new ConflictException("Student je vec prijavljen u grupu");
         }
 
         PrijavljenStudent prijavljenStudent = new PrijavljenStudent();
@@ -54,10 +46,7 @@ public class PrijavaService {
     @Transactional(readOnly = true)
     public List<PrijavljenStudent> moje(Authentication auth) {
         studentRepository.pronadjiPoEmailu(auth.getName())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.FORBIDDEN,
-                        "Prijavljeni korisnik nije student"
-                ));
+                .orElseThrow(() -> new ForbiddenException("Prijavljeni korisnik nije student"));
 
         return prijavljanStudentRepository.getStudentByEmail(auth.getName());
     }
@@ -65,10 +54,7 @@ public class PrijavaService {
     @Transactional(readOnly = true)
     public List<PrijavljenStudent> prijavaZaGrupu(Long grupaId, Authentication auth) {
         Grupa grupa = grupaRepository.findById(grupaId)
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Grupa ne postoji"
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("Grupa ne postoji"));
         proveriProfesora(auth, grupa);
 
         return prijavljanStudentRepository.findByGrupa_Id(grupaId);
@@ -79,10 +65,7 @@ public class PrijavaService {
                 .stream()
                 .noneMatch(uloga -> "ROLE_PROFESOR"
                         .equals(uloga.getAuthority()))) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Samo profesor moze da vidi prijave grupe"
-            );
+            throw new ForbiddenException("Samo profesor moze da vidi prijave grupe");
         }
 
         Long idPredmeta = predmetId(grupa);
@@ -96,10 +79,7 @@ public class PrijavaService {
                 );
 
         if (!predaje) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Profesor ne predaje predmet grupe"
-            );
+            throw new ForbiddenException("Profesor ne predaje predmet grupe");
         }
     }
 
@@ -107,10 +87,7 @@ public class PrijavaService {
         if (grupa == null
                 || grupa.getTermin() == null
                 || grupa.getTermin().getPredmet() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Grupa ne postoji"
-            );
+            throw new ConflictException("Grupa ne postoji");
         }
         return grupa.getTermin().getPredmet().getId();
     }

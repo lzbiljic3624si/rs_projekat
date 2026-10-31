@@ -3,7 +3,9 @@ package com.inzinjeri.rs_projekat.utils;
 import com.inzinjeri.rs_projekat.model.Profesor;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -54,6 +56,51 @@ class ParseUtilsTest {
     }
 
     @Test
+    void profesorEmailProduzavaImeDokNeNadjeSlobodnuAdresu() {
+        Set<String> zauzeti = new HashSet<>();
+        assertEquals("mpetrovic@raf.rs", dodajProfesora("Marija", "Petrovic", zauzeti));
+        assertEquals("mapetrovic@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("marpetrovic@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("maripetrovic@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("marinpetrovic@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("marinapetrovic@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("marinapetrovic1@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+        assertEquals("marinapetrovic2@raf.rs", dodajProfesora("Marina", "Petrovic", zauzeti));
+    }
+
+    @Test
+    void profesorEmailCuvaNormalizacijuIDvoslovneInicijale() {
+        Set<String> zauzeti = new HashSet<>();
+        assertEquals("djpetrovic@raf.rs", dodajProfesora(" Đorđe ", "Petrović", zauzeti));
+        assertEquals("djopetrovic@raf.rs", dodajProfesora("Djordje", "Petrovic", zauzeti));
+        assertEquals("apetrovic@raf.rs", dodajProfesora("A", "Petrovic", zauzeti));
+        assertEquals("apetrovic1@raf.rs", dodajProfesora("A", "Petrovic", zauzeti));
+        assertNull(ParseUtils.profesorEmail(null, "Petrovic", zauzeti::contains));
+        assertNull(ParseUtils.profesorEmail("Marina", "123", zauzeti::contains));
+    }
+
+    @Test
+    void pronadjiProfesoraKoristiSacuvaniEmailPosleKolizije() {
+        Profesor marija = profesor("Marija", "Petrovic");
+        marija.setEmail("mpetrovic@raf.rs");
+        Profesor marina = profesor("Marina", "Petrovic");
+        marina.setEmail("mapetrovic@raf.rs");
+        Profesor drugaMarina = profesor("Marina", "Petrovic");
+        drugaMarina.setEmail("marinapetrovic1@raf.rs");
+        List<Profesor> baza = List.of(marija, marina, drugaMarina);
+
+        assertSame(marija, ParseUtils.pronadjiProfesora("mpetrovic@raf.rs", baza));
+        assertSame(marina, ParseUtils.pronadjiProfesora(" MAPetrovic@raf.rs ", baza));
+        assertSame(drugaMarina, ParseUtils.pronadjiProfesora("marinapetrovic1@raf.rs", baza));
+    }
+
+    private static String dodajProfesora(String ime, String prezime, Set<String> zauzeti) {
+        String email = ParseUtils.profesorEmail(ime, prezime, zauzeti::contains);
+        zauzeti.add(email);
+        return email;
+    }
+
+    @Test
     void studentEmail() {
         assertEquals("mnikolic1223rn@raf.rs", ParseUtils.studentEmail("Marko", "Nikolić", 12, 2023, "RN"));
         assertEquals("ljpopovic505ri@raf.rs", ParseUtils.studentEmail("Ljubica", "Popović", 5, 2005, "RI"));
@@ -83,6 +130,7 @@ class ParseUtilsTest {
         Profesor p = new Profesor();
         p.setIme(ime);
         p.setPrezime(prezime);
+        p.setEmail(ParseUtils.profesorEmail(ime, prezime));
         return p;
     }
 }

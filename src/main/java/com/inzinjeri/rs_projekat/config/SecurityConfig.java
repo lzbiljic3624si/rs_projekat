@@ -56,6 +56,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/predmet/add",
+                                "/api/nalozi/**",
+                                "/api/predaje-predmet",
                                 "/api/raspored/**",
                                 "/api/zadaci"
                         ).hasRole(Uloga.PROFESOR.name())

@@ -1,13 +1,13 @@
 
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.UnauthorizedException;
 import com.inzinjeri.rs_projekat.config.SecurityConfig;
 import com.inzinjeri.rs_projekat.config.SecurityProperties;
 import com.inzinjeri.rs_projekat.model.Korisnik;
 import com.inzinjeri.rs_projekat.model.Uloga;
 import com.inzinjeri.rs_projekat.repositories.KorisnikRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtClaimsSet;
@@ -16,7 +16,6 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.time.Instant;
 
@@ -43,10 +42,7 @@ public class AuthService {
         Korisnik korisnik = korisnikRepository
                 .findByEmail(email.trim())
                 .filter(k -> passwordEncoder.matches(lozinka, k.getPasswordHash()))
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.UNAUTHORIZED,
-                        "Pogresan email ili lozinka"
-                ));
+                .orElseThrow(() -> new UnauthorizedException("Pogresan email ili lozinka"));
 
         Instant sada = Instant.now();
         Instant istice = sada.plus(securityProperties.jwtTrajanje());

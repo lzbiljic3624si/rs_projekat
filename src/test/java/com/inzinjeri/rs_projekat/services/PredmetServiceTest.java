@@ -1,10 +1,13 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.model.Predmet;
 import com.inzinjeri.rs_projekat.repositories.PredmetRepository;
 import org.junit.jupiter.api.Test;
-import org.springframework.http.HttpStatus;
-import org.springframework.web.server.ResponseStatusException;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -15,6 +18,18 @@ import static org.mockito.Mockito.*;
 class PredmetServiceTest {
     private final PredmetRepository repository = mock(PredmetRepository.class);
     private final PredmetService service = new PredmetService(repository);
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {" ", "0", " 0 "})
+    void predmetBezUslovaCuvaNull(String uslov) {
+        Predmet predmet = new Predmet();
+        predmet.setNaziv("Uvod u programiranje");
+        predmet.setUslov(uslov);
+        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        assertNull(service.save(predmet).getUslov());
+    }
 
     @Test
     void cuvaNovPredmet() {
@@ -33,8 +48,7 @@ class PredmetServiceTest {
         predmet.setNaziv("Razvoj softvera");
         when(repository.getPredmetByNaziv(predmet.getNaziv())).thenReturn(List.of(predmet));
 
-        assertEquals(HttpStatus.CONFLICT,
-                assertThrows(ResponseStatusException.class, () -> service.save(predmet)).getStatusCode());
+        assertThrows(ConflictException.class, () -> service.save(predmet));
         verify(repository, never()).save(any());
     }
 
@@ -46,7 +60,6 @@ class PredmetServiceTest {
 
         assertEquals(List.of(predmet), service.findAll());
         assertSame(predmet, service.findById(1L));
-        assertEquals(HttpStatus.NOT_FOUND,
-                assertThrows(ResponseStatusException.class, () -> service.findById(2L)).getStatusCode());
+        assertThrows(ResourceNotFoundException.class, () -> service.findById(2L));
     }
 }

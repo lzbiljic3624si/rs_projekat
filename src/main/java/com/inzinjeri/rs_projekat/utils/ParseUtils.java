@@ -5,6 +5,7 @@ import com.inzinjeri.rs_projekat.model.Profesor;
 import java.text.Normalizer;
 import java.util.Collection;
 import java.util.List;
+import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -53,6 +54,21 @@ public final class ParseUtils {
         return osnova == null ? null : osnova + "@raf.rs";
     }
 
+    public static String profesorEmail(String ime, String prezime, Predicate<String> emailZauzet) {
+        String osnova = inicijalIPrezime(ime, prezime);
+        if (osnova == null) return null;
+        String i = latinica(ime);
+        String p = latinica(prezime);
+        for (int duzina = osnova.length() - p.length(); duzina <= i.length(); duzina++) {
+            String email = i.substring(0, duzina) + p + "@raf.rs";
+            if (!emailZauzet.test(email)) return email;
+        }
+        for (int broj = 1; ; broj++) {
+            String email = i + p + broj + "@raf.rs";
+            if (!emailZauzet.test(email)) return email;
+        }
+    }
+
     /*
      * pravi studentski email: inicijal + prezime + broj + dve cifre godine + smer @raf.rs
      * Marko Nikolić, 12, 2023, RN -> mnikolic1223rn@raf.rs (obrnuto od parseEmail)
@@ -76,19 +92,13 @@ public final class ParseUtils {
         return inicijal + p;
     }
 
-    /*
-     * dobija email profesora (npr. djpetrovic@raf.rs) i listu profesora iz baze,
-     * a vraca profesora sa punim imenom (Đorđe Petrović).
-     * Iz samog email-a ne moze da se zna da li je djpetrovic = "dj" + "petrovic" ili "d" + "jpetrovic",
-     * zato se za svakog profesora napravi ocekivani email i uporedi.
-     * Vraca null ako nema poklapanja ili ako se poklapa vise profesora (npr. Petar i Pavle Petrović).
-     */
+    // Poredi sacuvane adrese, jer zbog kolizija email ne mora da bude inicijal + prezime.
     // ponytail: prolazi kroz sve profesore (O(n)), dovoljno za par stotina; za vise filtrirati upitom po prezimenu
     public static Profesor pronadjiProfesora(String profEmail, Collection<Profesor> profesori) {
         if (profEmail == null || profesori == null) return null;
-        String email = profEmail.trim().toLowerCase();
+        String email = profEmail.trim();
         List<Profesor> pogodci = profesori.stream()
-                .filter(p -> email.equals(profesorEmail(p.getIme(), p.getPrezime())))
+                .filter(p -> email.equalsIgnoreCase(p.getEmail()))
                 .toList();
         return pogodci.size() == 1 ? pogodci.get(0) : null;
     }

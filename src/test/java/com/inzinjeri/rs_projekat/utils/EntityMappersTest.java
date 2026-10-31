@@ -27,7 +27,7 @@ class EntityMappersTest {
         Zadatak zadatak = new Zadatak(); zadatak.setId(9L); zadatak.setNaziv("Prvi zadatak");
         zadatak.setGrupa(grupa); zadatak.setRepoPutanja("https://github.com/test/zadatak");
         Rad rad = new Rad(); rad.setId(10L); rad.setStudent(student); rad.setZadatak(zadatak);
-        rad.setStatus("OCENJEN"); rad.setPoeni(8.5); rad.setRepoPutanjaResenja("https://github.com/test/resenje");
+        rad.setStatus(StatusRada.OCENJEN); rad.setPoeni(8.5); rad.setRepoPutanjaResenja("https://github.com/test/resenje");
         rad.setVremePreuzimanja(LocalDateTime.of(2026, 10, 30, 10, 0));
         rad.setVremePredaje(LocalDateTime.of(2026, 10, 30, 11, 0));
 
@@ -42,7 +42,7 @@ class EntityMappersTest {
         assertEquals(rad.getVremePredaje(), response.getVremePredaje());
         assertEquals(rad.getRepoPutanjaResenja(), response.getRepoPutanjaResenja());
         assertEquals(8.5, response.getPoeni());
-        assertEquals("OCENJEN", response.getStatus());
+        assertEquals(StatusRada.OCENJEN, response.getStatus());
         assertEquals("Prvi zadatak", response.getZadatak().getNaziv());
         assertEquals(zadatak.getRepoPutanja(), response.getZadatak().getRepoPutanja());
         assertEquals("G1", response.getZadatak().getGrupa().getNaziv());

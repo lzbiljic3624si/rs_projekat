@@ -1,5 +1,6 @@
 package com.inzinjeri.rs_projekat.controllers.response;
 
+import com.inzinjeri.rs_projekat.model.StatusRada;
 import lombok.Data;
 
 import java.time.LocalDateTime;
@@ -11,7 +12,7 @@ public class RadResponse {
     private ZadatakResponse zadatak;
     private String repoPutanjaResenja;
     private Double poeni;
-    private String status;
+    private StatusRada status;
     private LocalDateTime vremePreuzimanja;
     private LocalDateTime vremePredaje;
 }

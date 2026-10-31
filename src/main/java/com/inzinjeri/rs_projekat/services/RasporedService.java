@@ -1,14 +1,16 @@
 package com.inzinjeri.rs_projekat.services;
 
+import com.inzinjeri.rs_projekat.exceptions.BadRequestException;
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
+import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.*;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -48,10 +50,7 @@ public class RasporedService {
 
         if (rokRepository.existsByNazivAndSkolskaGodina(
                 request.getNaziv(), request.getSkolskaGodina())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Rok vec postoji"
-            );
+            throw new ConflictException("Rok vec postoji");
         }
 
         Rok rok = new Rok();
@@ -66,9 +65,7 @@ public class RasporedService {
         proveriProfesora(auth);
 
         if (ucionicaRepository.pronadjiPoNazivu(request.getNaziv()).isPresent()) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Ucionica vec postoji");
+            throw new ConflictException("Ucionica vec postoji");
         }
 
         Ucionica ucionica = new Ucionica();
@@ -80,35 +77,27 @@ public class RasporedService {
     @Transactional
     public Long dodajTermin(TerminRequest request, Authentication auth) {
         if (!request.getVremePocetak().isBefore(request.getVremeKraja())) {
-            throw new ResponseStatusException(
-                    HttpStatus.BAD_REQUEST,
-                    "Pocetak termina mora biti pre kraja");
+            throw new BadRequestException("Pocetak termina mora biti pre kraja");
         }
 
         Predmet predmet = predmetRepository.findById(request.getPredmetId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Predmet ne postoji"
-                ));
+                .orElseThrow(() -> new ResourceNotFoundException("Predmet ne postoji"));
 
         proveriDaPredaje(auth, predmet.getId());
 
         Ucionica ucionica = ucionicaRepository.findById(
                         request.getUcionicaId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Ucionica ne postoji"));
+                .orElseThrow(() -> new ResourceNotFoundException("Ucionica ne postoji"));
 
         Rok rok = rokRepository.findById(request.getRokId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND, "Rok ne postoji"));
+                .orElseThrow(() -> new ResourceNotFoundException("Rok ne postoji"));
 
         if (terminRepository.postojiPreklapanje(
                 ucionica.getId(),
                 request.getDatum(),
                 request.getVremePocetak(),
                 request.getVremeKraja())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Učionica je zauzeta u tom terminu");
+            throw new ConflictException("Učionica je zauzeta u tom terminu");
         }
 
         Termin termin = new Termin();
@@ -125,21 +114,16 @@ public class RasporedService {
     @Transactional
     public Long dodajGrupu(GrupaRequest request, Authentication auth) {
         Termin termin = terminRepository.findById(request.getTerminId())
-                .orElseThrow(() -> new ResponseStatusException(
-                        HttpStatus.NOT_FOUND,
-                        "Termin ne postoji"));
+                .orElseThrow(() -> new ResourceNotFoundException("Termin ne postoji"));
 
         if (termin.getPredmet() == null) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT, "Termin nema predmet");
+            throw new ConflictException("Termin nema predmet");
         }
 
         proveriDaPredaje(auth, termin.getPredmet().getId());
 
         if (grupaRepository.existsByNaziv(request.getNaziv())) {
-            throw new ResponseStatusException(
-                    HttpStatus.CONFLICT,
-                    "Grupa već postoji");
+            throw new ConflictException("Grupa već postoji");
         }
 
         Grupa grupa = new Grupa();
@@ -156,9 +140,7 @@ public class RasporedService {
                         "ROLE_PROFESOR".equals(uloga.getAuthority()));
 
         if (!profesor) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Samo profesor može da menja raspored");
+            throw new ForbiddenException("Samo profesor može da menja raspored");
         }
     }
 
@@ -175,9 +157,7 @@ public class RasporedService {
                                 veza.getPredmet().getId()));
 
         if (!predaje) {
-            throw new ResponseStatusException(
-                    HttpStatus.FORBIDDEN,
-                    "Profesor ne predaje ovaj predmet");
+            throw new ForbiddenException("Profesor ne predaje ovaj predmet");
         }
     }
 }

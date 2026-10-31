@@ -68,6 +68,7 @@ public final class EntityMappers {
         response.setId(student.getId());
         response.setIme(student.getIme());
         response.setPrezime(student.getPrezime());
+        response.setSmer(student.getSmer());
         response.setBrIndeksa(student.getBrIndeksa());
         response.setGodUpisa(student.getGodUpisa());
         response.setEmail(student.getEmail());

@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 import java.util.List;
 
 public interface PredajePredmetRepository extends JpaRepository<PredajePredmet, Long> {
+    boolean existsByProfesor_IdAndPredmet_Id(Long profesorId, Long predmetId);
+
     @Query("select pp from PredajePredmet pp where pp.profesor.email = :emailPredavaca")
     List<PredajePredmet> getPredmetiZaPredavaca(
             @Param("emailPredavaca") String emailPredavaca
