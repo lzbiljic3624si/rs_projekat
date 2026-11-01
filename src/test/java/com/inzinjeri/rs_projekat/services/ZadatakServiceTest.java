@@ -24,7 +24,8 @@ class ZadatakServiceTest {
     private final StudentRepository studenti = mock(StudentRepository.class);
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
-    private final ZadatakService service = new ZadatakService(zadaci, grupe, studenti, prijave, predaje);
+    private final ZadatakService service = new ZadatakService(zadaci, grupe, studenti, prijave, predaje,
+            mock(RadRepository.class));
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
 

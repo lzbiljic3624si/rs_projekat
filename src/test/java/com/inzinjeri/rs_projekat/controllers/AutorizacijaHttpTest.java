@@ -64,7 +64,7 @@ class AutorizacijaHttpTest {
         when(prijavljeni.existsByStudent_IdAndGrupa_Id(1L, 3L)).thenReturn(true);
         when(predmeti.findById(4L)).thenReturn(predmet);
         when(predmeti.save(any())).thenReturn(predmet);
-        when(radovi.predaj(any(), any(), any())).thenReturn(rad);
+        when(radovi.predaj(any(), any())).thenReturn(rad);
         when(radovi.oceni(any(), any(), any())).thenReturn(rad);
         when(zadaci.zaGrupu(any(), any())).thenReturn(new ZadatakResponse());
     }
@@ -98,7 +98,7 @@ class AutorizacijaHttpTest {
     void nepostojeciRadSeOdbijaPrePoslovnogServisa() throws Exception {
         mvc.perform(post("/api/rad/999/predaj").with(user("student@test.rs").roles("STUDENT"))
                         .with(csrf()).contentType("application/json")
-                        .content("{\"repoPutanjaResenja\":\"https://github.com/test/resenje\"}"))
+                        .content("{}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(radovi);
     }
@@ -117,7 +117,7 @@ class AutorizacijaHttpTest {
                 new Endpoint("/api/rad/moj", null, 200, 403, 200, 403),
                 new Endpoint("/api/rad/predmet/4/predati", null, 403, 200, 403, 403),
                 new Endpoint("/api/rad/9/oceni", "{\"poeni\":8.5}", 403, 200, 403, 403),
-                new Endpoint("/api/rad/9/predaj", "{\"repoPutanjaResenja\":\"https://github.com/test/resenje\"}", 200, 403, 403, 403),
+                new Endpoint("/api/rad/9/predaj", "{}", 200, 403, 403, 403),
                 new Endpoint("/api/rad/5/preuzmi", "", 201, 403, 403, 403),
                 new Endpoint("/api/raspored/rokovi", null, 200, 200, 200, 200),
                 new Endpoint("/api/raspored/ucionice", null, 200, 200, 200, 200),

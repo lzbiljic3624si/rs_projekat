@@ -3,8 +3,11 @@ package com.inzinjeri.rs_projekat.utils;
 import com.inzinjeri.rs_projekat.model.Profesor;
 
 import java.text.Normalizer;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.function.Predicate;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -19,6 +22,21 @@ public final class ParseUtils {
     private static final List<String> DVOSLOVNI_INICIJALI = List.of("dj", "dz", "lj", "nj");
 
     private ParseUtils() {
+    }
+
+    // Datum dolazi iz termina, ne iz trenutnog datuma servera.
+    public static String repoPutanjaResenja(String studentEmail, String nazivPredmeta, LocalDate datum) {
+        if (studentEmail == null || nazivPredmeta == null || datum == null) return null;
+        int at = studentEmail.lastIndexOf('@');
+        if (at <= 0 || at == studentEmail.length() - 1) return null;
+        String email = studentEmail.substring(0, at).trim().toLowerCase(Locale.ROOT);
+        if (!email.matches("[^\\\\/:*?\"<>|\\p{Cntrl}]+")) return null;
+        String predmet = Normalizer.normalize(nazivPredmeta.trim().toLowerCase(Locale.ROOT).replace("đ", "dj"),
+                        Normalizer.Form.NFD).replaceAll("\\p{M}", "")
+                .replaceAll("[^\\p{L}\\p{N}]+", "-").replaceAll("^-|-$", "");
+        if (predmet.isEmpty()) return null;
+        String putanja = email + "_" + predmet + "_" + datum.format(DateTimeFormatter.ofPattern("ddMMyy", Locale.ROOT));
+        return putanja.length() <= 255 ? putanja : null;
     }
 
     /*

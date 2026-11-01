@@ -9,6 +9,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.security.core.Authentication;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/predaje-predmet")
@@ -16,6 +18,22 @@ import org.springframework.web.bind.annotation.*;
 @PreAuthorize("hasRole('PROFESOR')")
 public class PredajePredmetController {
     private final PredajePredmetService predajePredmetService;
+
+    @PutMapping("/edit/{id}")
+    public PredajePredmetResponse izmeni(@PathVariable Long id, @Valid @RequestBody PredajePredmetRequest request) {
+        return EntityMappers.toResponse(predajePredmetService.izmeni(id, request));
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void obrisi(@PathVariable Long id) {
+        predajePredmetService.obrisi(id);
+    }
+
+    @GetMapping("/moji")
+    public List<PredajePredmetResponse> moji(Authentication auth) {
+        return predajePredmetService.moji(auth).stream().map(EntityMappers::toResponse).toList();
+    }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)

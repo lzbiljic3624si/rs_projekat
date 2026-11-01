@@ -1,6 +1,8 @@
 package com.inzinjeri.rs_projekat.controllers;
 
 import com.inzinjeri.rs_projekat.controllers.response.PrijavljenStudentResponse;
+import com.inzinjeri.rs_projekat.controllers.request.PrijavaEditRequest;
+import jakarta.validation.Valid;
 import com.inzinjeri.rs_projekat.services.PrijavaService;
 import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import lombok.RequiredArgsConstructor;
@@ -18,6 +20,26 @@ import java.util.List;
 public class PrijavaController {
 
     private final PrijavaService prijavaService;
+
+    @PutMapping("/edit/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
+    public PrijavljenStudentResponse izmeni(@PathVariable Long id, @Valid @RequestBody PrijavaEditRequest request,
+                                           Authentication auth) {
+        return EntityMappers.toResponse(prijavaService.izmeni(id, request, auth));
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void obrisi(@PathVariable Long id, Authentication auth) {
+        prijavaService.obrisi(id, auth);
+    }
+
+    @DeleteMapping("/grupa/{grupaId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void odjaviSe(@PathVariable Long grupaId, Authentication auth) {
+        prijavaService.odjaviSe(grupaId, auth);
+    }
 
     @PostMapping("/grupa/{grupaId}")
     @ResponseStatus(HttpStatus.CREATED)

@@ -29,6 +29,27 @@ public class ZadatakController {
 
     private final ZadatakService zadatakService;
 
+    @PutMapping("/{id}")
+    @PreAuthorize("@pristupService.profesorPredajePredmetZadatka(authentication, #id)")
+    public ZadatakResponse izmeni(@PathVariable Long id, @Valid @RequestBody ZadatakRequest request,
+                                  Authentication auth) {
+        return EntityMappers.toResponse(zadatakService.izmeni(id, request, auth));
+    }
+
+    @PutMapping("/edit/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public ZadatakResponse izmeniAlias(@PathVariable Long id, @Valid @RequestBody ZadatakRequest request,
+                                      Authentication auth) {
+        return EntityMappers.toResponse(zadatakService.izmeni(id, request, auth));
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void obrisi(@PathVariable Long id, Authentication auth) {
+        zadatakService.obrisi(id, auth);
+    }
+
     @GetMapping("/grupa/{grupaId}")
     @PreAuthorize("@pristupService.studentPripadaGrupi(authentication, #grupaId) or "
             + "@pristupService.profesorPredajePredmetGrupe(authentication, #grupaId)")

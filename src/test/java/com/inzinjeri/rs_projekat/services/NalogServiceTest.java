@@ -24,7 +24,8 @@ class NalogServiceTest {
     private final ProfesorRepository profesori = mock(ProfesorRepository.class);
     private final KorisnikRepository korisnici = mock(KorisnikRepository.class);
     private final PasswordEncoder encoder = PasswordEncoderFactories.createDelegatingPasswordEncoder();
-    private final NalogService service = new NalogService(studenti, profesori, korisnici, encoder);
+    private final NalogService service = new NalogService(studenti, profesori, korisnici, encoder,
+            mock(RadRepository.class), mock(PrijavljenStudentRepository.class), mock(PredajePredmetRepository.class));
 
     @Test
     void studentDobijaGenerisaniEmailIUpotrebljivPovezanNalog() {

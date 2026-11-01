@@ -1,1 +1,0 @@
-TODO: Napriaviti controller za svaki model

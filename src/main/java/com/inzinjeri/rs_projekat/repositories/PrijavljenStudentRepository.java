@@ -15,5 +15,9 @@ public interface PrijavljenStudentRepository extends JpaRepository<PrijavljenStu
 
     boolean existsByStudent_IdAndGrupa_Id(Long studentId, Long grupaId);
 
+    boolean existsByGrupa_Id(Long grupaId);
+
+    boolean existsByStudent_Id(Long studentId);
+
     List<PrijavljenStudent> findByGrupa_Id(Long grupaId);
 }

@@ -176,7 +176,9 @@ public class Seeder implements CommandLineRunner {
             r.setZadatak(zadatakList.get(i - 1));
             r.setVremePreuzimanja(LocalDateTime.of(2026, 1, 10 + i, 9, 0));
             r.setVremePredaje(i % 2 == 0 ? LocalDateTime.of(2026, 1, 10 + i, 11, 0) : null);
-            r.setRepoPutanjaResenja(i % 2 == 0 ? "repo/resenje" + i : null);
+            Termin termin = zadatakList.get(i - 1).getGrupa().getTermin();
+            r.setRepoPutanjaResenja(ParseUtils.repoPutanjaResenja(
+                    studentList.get(i - 1).getEmail(), termin.getPredmet().getNaziv(), termin.getDatum()));
             r.setPoeni(i == 4 ? 85.0 : null);
             r.setStatus(i == 4 ? StatusRada.OCENJEN : i % 2 == 0 ? StatusRada.PREDAT : StatusRada.PREUZET);
             radRepository.save(r);

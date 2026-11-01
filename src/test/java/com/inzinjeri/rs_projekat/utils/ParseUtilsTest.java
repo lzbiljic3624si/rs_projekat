@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.time.LocalDate;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -13,6 +14,29 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
 
 class ParseUtilsTest {
+
+    @Test
+    void putanjaResenjaSadrziLokalniEmailNormalizovanPredmetIDatum() {
+        assertEquals("ana_djordje-programiranje-2_020130", ParseUtils.repoPutanjaResenja(
+                "Ana@raf.rs", "Đorđe / Programiranje 2", LocalDate.of(2030, 1, 2)));
+        assertEquals("ana+test_rs_311230", ParseUtils.repoPutanjaResenja(
+                "ana+test@raf.rs", "RS", LocalDate.of(2030, 12, 31)));
+    }
+
+    @Test
+    void putanjaResenjaOdbijaNepotpuneNebezbedneIPredugackePodatke() {
+        LocalDate datum = LocalDate.of(2030, 1, 2);
+        assertNull(ParseUtils.repoPutanjaResenja(null, "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana@raf.rs", null, datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana@raf.rs", "RS", null));
+        assertNull(ParseUtils.repoPutanjaResenja("ana", "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("@raf.rs", "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana@", "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("../ana@raf.rs", "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana\\test@raf.rs", "RS", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana@raf.rs", " / -- ", datum));
+        assertNull(ParseUtils.repoPutanjaResenja("ana@raf.rs", "a".repeat(255), datum));
+    }
 
     @Test
     void parseIndeks() {

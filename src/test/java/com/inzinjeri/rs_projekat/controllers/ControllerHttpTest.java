@@ -129,7 +129,7 @@ class ControllerHttpTest {
         when(radovi.moj(auth)).thenReturn(List.of(rad));
         when(radovi.predati(4L, auth)).thenReturn(List.of(rad));
         when(radovi.preuzmi(5L, auth)).thenReturn(9L);
-        when(radovi.predaj(eq(9L), any(), eq(auth))).thenReturn(rad);
+        when(radovi.predaj(9L, auth)).thenReturn(rad);
         when(radovi.oceni(eq(9L), any(), eq(auth))).thenReturn(rad);
 
         mvc.perform(get("/api/rad/moj").principal(auth)).andExpect(status().isOk())
@@ -138,14 +138,13 @@ class ControllerHttpTest {
                 .andExpect(jsonPath("$[0].poeni").value(8.5));
         mvc.perform(post("/api/rad/5/preuzmi").principal(auth))
                 .andExpect(status().isCreated()).andExpect(content().string("9"));
-        mvc.perform(post("/api/rad/9/predaj").principal(auth).contentType("application/json").content("""
-                {"repoPutanjaResenja":"https://github.com/student/resenje"}
-                """)).andExpect(status().isOk()).andExpect(jsonPath("$.id").value(9));
+        mvc.perform(post("/api/rad/9/predaj").principal(auth))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(9));
         mvc.perform(post("/api/rad/9/oceni").principal(auth).contentType("application/json").content("{\"poeni\":8.5}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("OCENJEN"));
         verify(radovi).predati(4L, auth);
         verify(radovi).preuzmi(5L, auth);
-        verify(radovi).predaj(eq(9L), argThat(r -> "https://github.com/student/resenje".equals(r.getRepoPutanjaResenja())), eq(auth));
+        verify(radovi).predaj(9L, auth);
         verify(radovi).oceni(eq(9L), argThat(r -> Double.valueOf(8.5).equals(r.getPoeni())), eq(auth));
     }
 
@@ -215,7 +214,7 @@ class ControllerHttpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/predmet/add", "/api/rad/9/predaj", "/api/rad/9/oceni", "/api/zadaci",
+    @ValueSource(strings = {"/api/predmet/add", "/api/rad/9/oceni", "/api/zadaci",
             "/api/raspored/rokovi", "/api/raspored/ucionice", "/api/raspored/termini", "/api/raspored/grupe"})
     void praznoTeloNeDolaziDoServisa(String putanja) throws Exception {
         mvc.perform(post(putanja).principal(auth).contentType("application/json").content("{}"))

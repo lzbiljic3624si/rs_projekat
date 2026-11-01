@@ -11,6 +11,17 @@ import java.util.List;
 
 public interface TerminRepository extends JpaRepository<Termin, Long> {
 
+    boolean existsByPredmet_Id(Long predmetId);
+
+    boolean existsByRok_Id(Long rokId);
+
+    boolean existsByUcionica_Id(Long ucionicaId);
+
+    @Query("select count(t) > 0 from Termin t where t.id <> :id and t.ucionica.id = :ucionicaId and t.datum = :datum and t.vremePocetak < :kraj and t.vremeKraj > :pocetak")
+    boolean postojiPreklapanjeOsim(@Param("id") Long id, @Param("ucionicaId") Long ucionicaId,
+                                  @Param("datum") LocalDate datum, @Param("pocetak") LocalTime pocetak,
+                                  @Param("kraj") LocalTime kraj);
+
     @Query("select count(t) > 0 from Termin t where t.ucionica.id = :ucionicaId and t.datum = :datum and t.vremePocetak < :kraj and t.vremeKraj > :pocetak")
     boolean postojiPreklapanje(@Param("ucionicaId") Long ucionicaId, @Param("datum") LocalDate datum,
                                @Param("pocetak") LocalTime pocetak, @Param("kraj") LocalTime kraj);

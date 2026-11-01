@@ -17,7 +17,8 @@ import static org.mockito.Mockito.*;
 
 class PredmetServiceTest {
     private final PredmetRepository repository = mock(PredmetRepository.class);
-    private final PredmetService service = new PredmetService(repository);
+    private final PredmetService service = new PredmetService(repository, mock(com.inzinjeri.rs_projekat.repositories.PredajePredmetRepository.class),
+            mock(com.inzinjeri.rs_projekat.repositories.TerminRepository.class));
 
     @ParameterizedTest
     @NullAndEmptySource

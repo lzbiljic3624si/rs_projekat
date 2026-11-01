@@ -2,6 +2,9 @@
 package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.exceptions.UnauthorizedException;
+import com.inzinjeri.rs_projekat.exceptions.BadRequestException;
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
+import com.inzinjeri.rs_projekat.controllers.request.PromenaLozinkeRequest;
 import com.inzinjeri.rs_projekat.config.SecurityConfig;
 import com.inzinjeri.rs_projekat.config.SecurityProperties;
 import com.inzinjeri.rs_projekat.model.Korisnik;
@@ -16,8 +19,10 @@ import org.springframework.security.oauth2.jwt.JwtEncoderParameters;
 import org.springframework.security.oauth2.jwt.JwsHeader;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.security.core.Authentication;
 
 import java.time.Instant;
+import java.nio.charset.StandardCharsets;
 
 @Service
 @RequiredArgsConstructor
@@ -33,6 +38,36 @@ public class AuthService {
     private final SecurityProperties securityProperties;
 
     public record Prijava(String token, Instant istice, Uloga uloga) {
+    }
+
+    @Transactional
+    public void promeniLozinku(PromenaLozinkeRequest request, Authentication auth) {
+        Korisnik korisnik = korisnikRepository.findByEmail(auth.getName())
+                .orElseThrow(() -> new UnauthorizedException("Nalog ne postoji"));
+        String stara = request.getStaraLozinka();
+        if (stara == null || stara.isBlank() || stara.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new BadRequestException("Stara lozinka mora imati najvise 72 UTF-8 bajta");
+        }
+        if (!passwordEncoder.matches(stara, korisnik.getPasswordHash())) {
+            throw new UnauthorizedException("Pogresna stara lozinka");
+        }
+        String nova = request.getNovaLozinka();
+        if (nova == null || nova.isBlank() || nova.length() < 8
+                || nova.getBytes(StandardCharsets.UTF_8).length > 72) {
+            throw new BadRequestException("Nova lozinka mora imati najmanje 8 znakova i najvise 72 UTF-8 bajta");
+        }
+        if ((korisnik.getUloga() == Uloga.STUDENT && korisnik.getStudent() == null)
+                || (korisnik.getUloga() == Uloga.PROFESOR && korisnik.getProfesor() == null)) {
+            throw new ConflictException("Nalog nema povezan profil");
+        }
+        String hash = passwordEncoder.encode(nova);
+        korisnik.setPasswordHash(hash);
+        if (korisnik.getUloga() == Uloga.STUDENT) {
+            korisnik.getStudent().setPasswordHash(hash);
+        } else if (korisnik.getUloga() == Uloga.PROFESOR) {
+            korisnik.getProfesor().setPasswordHash(hash);
+        }
+        korisnikRepository.save(korisnik);
     }
 
     @Transactional(readOnly = true)

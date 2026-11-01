@@ -5,11 +5,12 @@ import com.inzinjeri.rs_projekat.exceptions.ConflictException;
 import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
 import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
-import com.inzinjeri.rs_projekat.controllers.request.PredajaRadaRequest;
 import com.inzinjeri.rs_projekat.model.Rad;
 import com.inzinjeri.rs_projekat.model.StatusRada;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.model.Zadatak;
+import com.inzinjeri.rs_projekat.utils.VremeTermina;
+import com.inzinjeri.rs_projekat.utils.ParseUtils;
 import com.inzinjeri.rs_projekat.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
@@ -17,6 +18,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.time.Clock;
 import java.util.List;
 
 @Service
@@ -28,6 +30,64 @@ public class RadService {
     private final ZadatakRepository zadatakRepository;
     private final PrijavljenStudentRepository prijavljenStudentRepository;
     private final PredajePredmetRepository predajePredmetRepository;
+    private final Clock clock;
+
+    @Transactional(readOnly = true)
+    public List<Rad> zaPredmet(Long predmetId, StatusRada status, Authentication auth) {
+        proveriDaPredaje(auth, predmetId);
+        return radRepository.findByPredmetIdAndStatus(predmetId, status);
+    }
+
+    @Transactional(readOnly = true)
+    public Rad byId(Long radId, Authentication auth) {
+        Rad rad = radRepository.findById(radId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rad ne postoji"));
+        proveriPristupRadu(rad, auth);
+        return rad;
+    }
+
+    private void proveriPristupRadu(Rad rad, Authentication auth) {
+        boolean vlasnik = auth.getAuthorities().stream().anyMatch(a -> "ROLE_STUDENT".equals(a.getAuthority()))
+                && rad.getStudent() != null && auth.getName().equals(rad.getStudent().getEmail());
+        if (!vlasnik) {
+            if (rad.getZadatak() == null || rad.getZadatak().getGrupa() == null
+                    || rad.getZadatak().getGrupa().getTermin() == null
+                    || rad.getZadatak().getGrupa().getTermin().getPredmet() == null) {
+                throw new ConflictException("Rad nema predmet");
+            }
+            proveriDaPredaje(auth, rad.getZadatak().getGrupa().getTermin().getPredmet().getId());
+        }
+    }
+
+    @Transactional
+    public Rad izmeni(Long id, OcenaRadaRequest request, Authentication auth) {
+        if (auth.getAuthorities().stream().noneMatch(a -> "ROLE_PROFESOR".equals(a.getAuthority()))) {
+            throw new ForbiddenException("Samo profesor moze da ispravlja poene rada");
+        }
+        Rad rad = radZaIzmenu(id);
+        proveriPristupRadu(rad, auth);
+        if (request.getPoeni() == null || !Double.isFinite(request.getPoeni()) || request.getPoeni() < 0) {
+            throw new BadRequestException("Poeni moraju biti nenegativan broj");
+        }
+        if (rad.getStatus() != StatusRada.OCENJEN) {
+            throw new ConflictException("Ispravka poena je moguca samo za ocenjen rad");
+        }
+        rad.setPoeni(request.getPoeni());
+        return radRepository.save(rad);
+    }
+
+    @Transactional
+    public void obrisi(Long id, Authentication auth) {
+        Rad rad = radZaIzmenu(id);
+        proveriPristupRadu(rad, auth);
+        radRepository.delete(rad);
+        radRepository.flush();
+    }
+
+    private Rad radZaIzmenu(Long id) {
+        return radRepository.findByIdZaIzmenu(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rad ne postoji"));
+    }
 
     @Transactional(readOnly = true)
     public List<Rad> moj(Authentication auth) {
@@ -43,8 +103,7 @@ public class RadService {
 
     @Transactional
     public Rad oceni (Long radId, OcenaRadaRequest request, Authentication auth){
-        Rad rad = radRepository.findById(radId)
-                .orElseThrow(() ->  new ResourceNotFoundException("Rad ne postoji"));
+        Rad rad = radZaIzmenu(radId);
 
         if(rad.getZadatak() == null
                 || rad.getZadatak().getGrupa() == null
@@ -78,9 +137,8 @@ public class RadService {
     }
 
     @Transactional
-    public Rad predaj(Long radId, PredajaRadaRequest request, Authentication auth){
-        Rad rad = radRepository.findById(radId)
-                .orElseThrow(() -> new ResourceNotFoundException("Rad ne postoji"));
+    public Rad predaj(Long radId, Authentication auth){
+        Rad rad = radZaIzmenu(radId);
         if(rad.getStudent() == null
                 || !auth.getName().equals(rad.getStudent().getEmail())){
             throw new ForbiddenException("Ovaj rad nije tvoj");
@@ -89,8 +147,14 @@ public class RadService {
             throw new ConflictException("Rad ne moze ponovo da se preda");
         }
 
-        rad.setRepoPutanjaResenja(request.getRepoPutanjaResenja());
-        rad.setVremePredaje(LocalDateTime.now());
+        LocalDateTime sada = LocalDateTime.now(clock);
+        VremeTermina.proveriUToku(rad.getZadatak() == null || rad.getZadatak().getGrupa() == null
+                ? null : rad.getZadatak().getGrupa().getTermin(), sada);
+
+        if (rad.getRepoPutanjaResenja() == null || rad.getRepoPutanjaResenja().isBlank()) {
+            rad.setRepoPutanjaResenja(automatskaPutanjaResenja(rad.getStudent(), rad.getZadatak()));
+        }
+        rad.setVremePredaje(sada);
         rad.setStatus(StatusRada.PREDAT);
 
         return radRepository.save(rad);
@@ -101,7 +165,7 @@ public class RadService {
         Student student = studentRepository.pronadjiPoEmailu(auth.getName())
                 .orElseThrow(() -> new ForbiddenException("Prijavljeni korisnik nije student"));
 
-        Zadatak zadatak = zadatakRepository.findById(zadatakId)
+        Zadatak zadatak = zadatakRepository.findByIdZaIzmenu(zadatakId)
                 .orElseThrow(() -> new ResourceNotFoundException("Zadatak ne postoji"));
 
         if (zadatak.getGrupa() == null) {
@@ -122,13 +186,29 @@ public class RadService {
             throw new ConflictException("Zadatak je vec preuzet");
         }
 
+        LocalDateTime sada = LocalDateTime.now(clock);
+        VremeTermina.proveriUToku(zadatak.getGrupa().getTermin(), sada);
+
         Rad rad = new Rad();
         rad.setStudent(student);
         rad.setZadatak(zadatak);
-        rad.setVremePreuzimanja(LocalDateTime.now());
+        rad.setRepoPutanjaResenja(automatskaPutanjaResenja(student, zadatak));
+        rad.setVremePreuzimanja(sada);
         rad.setStatus(StatusRada.PREUZET);
 
         return radRepository.save(rad).getId();
+    }
+
+    private String automatskaPutanjaResenja(Student student, Zadatak zadatak) {
+        var termin = zadatak == null || zadatak.getGrupa() == null ? null : zadatak.getGrupa().getTermin();
+        if (student == null || termin == null || termin.getPredmet() == null) {
+            throw new ConflictException("Nedostaju podaci za putanju repozitorijuma resenja");
+        }
+        String putanja = ParseUtils.repoPutanjaResenja(student.getEmail(), termin.getPredmet().getNaziv(), termin.getDatum());
+        if (putanja == null) {
+            throw new ConflictException("Email, predmet i datum moraju omoguciti putanju resenja do 255 znakova");
+        }
+        return putanja;
     }
 
     private void proveriDaPredaje(Authentication auth, Long predmetId) {

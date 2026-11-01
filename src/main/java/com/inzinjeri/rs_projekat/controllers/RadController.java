@@ -1,11 +1,11 @@
 package com.inzinjeri.rs_projekat.controllers;
 
-import com.inzinjeri.rs_projekat.controllers.request.PredajaRadaRequest;
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
 import com.inzinjeri.rs_projekat.controllers.response.RadResponse;
 import com.inzinjeri.rs_projekat.controllers.response.StudentResponse;
 import com.inzinjeri.rs_projekat.controllers.response.ZadatakResponse;
 import com.inzinjeri.rs_projekat.model.Rad;
+import com.inzinjeri.rs_projekat.model.StatusRada;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.model.Zadatak;
 import com.inzinjeri.rs_projekat.repositories.PrijavljenStudentRepository;
@@ -32,6 +32,33 @@ import java.util.List;
 public class RadController {
 
     private final RadService radService;
+
+    @PutMapping("/edit/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public RadResponse izmeni(@PathVariable Long id, @Valid @RequestBody OcenaRadaRequest request, Authentication auth) {
+        return EntityMappers.toResponse(radService.izmeni(id, request, auth));
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void obrisi(@PathVariable Long id, Authentication auth) {
+        radService.obrisi(id, auth);
+    }
+
+    @GetMapping("/predmet/{predmetId}")
+    @PreAuthorize("@pristupService.profesorPredajePredmet(authentication, #predmetId)")
+    public List<RadResponse> zaPredmet(@PathVariable Long predmetId,
+                                      @RequestParam(required = false) StatusRada status, Authentication auth) {
+        return radService.zaPredmet(predmetId, status, auth).stream().map(EntityMappers::toResponse).toList();
+    }
+
+    @GetMapping("/{radId}")
+    @PreAuthorize("@pristupService.studentJeVlasnikRada(authentication, #radId) or "
+            + "@pristupService.profesorPredajePredmetRada(authentication, #radId)")
+    public RadResponse byId(@PathVariable Long radId, Authentication auth) {
+        return EntityMappers.toResponse(radService.byId(radId, auth));
+    }
 
     @GetMapping("/moj")
     public List<RadResponse> moj(Authentication auth) {
@@ -60,12 +87,8 @@ public class RadController {
 
     @PostMapping("/{radId}/predaj")
     @PreAuthorize("@pristupService.studentJeVlasnikRada(authentication, #radId)")
-    public RadResponse predaj(@PathVariable Long radId,
-                              @Valid @RequestBody PredajaRadaRequest request,
-                              Authentication auth) {
-
-
-        return EntityMappers.toResponse(radService.predaj(radId, request, auth));
+    public RadResponse predaj(@PathVariable Long radId, Authentication auth) {
+        return EntityMappers.toResponse(radService.predaj(radId, auth));
     }
 
     @PostMapping("/{zadatakId}/preuzmi")

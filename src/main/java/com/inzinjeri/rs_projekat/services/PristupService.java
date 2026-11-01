@@ -80,6 +80,14 @@ public class PristupService {
                 .orElse(false);
     }
 
+    public boolean profesorPredajePredmetZadatka(Authentication auth, Long zadatakId) {
+        return imaUlogu(auth, "PROFESOR") && zadatakId != null
+                && zadatakRepository.findById(zadatakId)
+                .map(Zadatak::getGrupa)
+                .map(grupa -> profesorPredajePredmetGrupe(auth, grupa.getId()))
+                .orElse(false);
+    }
+
     private boolean imaUlogu(Authentication auth, String uloga) {
         return auth != null && auth.isAuthenticated()
                 && !(auth instanceof AnonymousAuthenticationToken)

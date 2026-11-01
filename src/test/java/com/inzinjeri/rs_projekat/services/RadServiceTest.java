@@ -5,7 +5,6 @@ import com.inzinjeri.rs_projekat.exceptions.ConflictException;
 import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
 import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
-import com.inzinjeri.rs_projekat.controllers.request.PredajaRadaRequest;
 import com.inzinjeri.rs_projekat.model.Grupa;
 import com.inzinjeri.rs_projekat.model.PredajePredmet;
 import com.inzinjeri.rs_projekat.model.Predmet;
@@ -28,6 +27,10 @@ import org.springframework.security.core.Authentication;
 
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -49,7 +52,8 @@ class RadServiceTest {
     private final ZadatakRepository zadaci = mock(ZadatakRepository.class);
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predmeti = mock(PredajePredmetRepository.class);
-    private final RadService service = new RadService(radovi, studenti, zadaci, prijave, predmeti);
+    private final RadService service = new RadService(radovi, studenti, zadaci, prijave, predmeti,
+            Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("student@example.com", null);
     private final Authentication profesor = new UsernamePasswordAuthenticationToken("profesor@example.com", null);
 
@@ -79,6 +83,7 @@ class RadServiceTest {
         OcenaRadaRequest request = new OcenaRadaRequest();
         request.setPoeni(8.5);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
         when(radovi.save(rad)).thenReturn(rad);
 
@@ -98,6 +103,7 @@ class RadServiceTest {
         OcenaRadaRequest request = new OcenaRadaRequest();
         request.setPoeni(5.0);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         assertThrows(ForbiddenException.class, () -> service.oceni(9L, request, profesor));
 
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
@@ -155,7 +161,7 @@ class RadServiceTest {
         Student student = student();
         Zadatak zadatak = zadatak();
         when(studenti.pronadjiPoEmailu(auth.getName())).thenReturn(Optional.of(student));
-        when(zadaci.findById(5L)).thenReturn(Optional.of(zadatak));
+        when(zadaci.findByIdZaIzmenu(5L)).thenReturn(Optional.of(zadatak));
         when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
         when(radovi.save(any(Rad.class))).thenAnswer(call -> {
             Rad rad = call.getArgument(0);
@@ -169,6 +175,7 @@ class RadServiceTest {
         verify(radovi).save(sacuvanRad.capture());
         assertSame(student, sacuvanRad.getValue().getStudent());
         assertSame(zadatak, sacuvanRad.getValue().getZadatak());
+        assertEquals("student_razvoj-softvera_150630", sacuvanRad.getValue().getRepoPutanjaResenja());
         assertEquals(StatusRada.PREUZET, sacuvanRad.getValue().getStatus());
         assertNotNull(sacuvanRad.getValue().getVremePreuzimanja());
         assertNull(sacuvanRad.getValue().getVremePredaje());
@@ -184,7 +191,7 @@ class RadServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> service.preuzmi(5L, auth));
 
         zadatak.setGrupa(null);
-        when(zadaci.findById(5L)).thenReturn(Optional.of(zadatak));
+        when(zadaci.findByIdZaIzmenu(5L)).thenReturn(Optional.of(zadatak));
         assertThrows(ConflictException.class, () -> service.preuzmi(5L, auth));
 
         Grupa grupa = new Grupa();
@@ -203,13 +210,14 @@ class RadServiceTest {
         Rad rad = new Rad();
         rad.setId(9L);
         rad.setStudent(student());
+        rad.setZadatak(zadatak());
         rad.setStatus(StatusRada.PREUZET);
-        PredajaRadaRequest request = new PredajaRadaRequest();
-        request.setRepoPutanjaResenja("https://github.com/student/resenje");
+        rad.setRepoPutanjaResenja("https://github.com/student/resenje");
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(radovi.save(rad)).thenReturn(rad);
 
-        var odgovor = service.predaj(9L, request, auth);
+        var odgovor = service.predaj(9L, auth);
 
         assertEquals("https://github.com/student/resenje", rad.getRepoPutanjaResenja());
         assertNotNull(rad.getVremePredaje());
@@ -221,9 +229,7 @@ class RadServiceTest {
 
     @Test
     void predajOdbijaTudjiIIzmenjeniRad() {
-        PredajaRadaRequest request = new PredajaRadaRequest();
-        request.setRepoPutanjaResenja("https://github.com/student/resenje");
-        assertThrows(ResourceNotFoundException.class, () -> service.predaj(9L, request, auth));
+        assertThrows(ResourceNotFoundException.class, () -> service.predaj(9L, auth));
 
         Rad rad = new Rad();
         Student drugiStudent = student();
@@ -231,11 +237,12 @@ class RadServiceTest {
         rad.setStudent(drugiStudent);
         rad.setStatus(StatusRada.PREUZET);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
-        assertThrows(ForbiddenException.class, () -> service.predaj(9L, request, auth));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
+        assertThrows(ForbiddenException.class, () -> service.predaj(9L, auth));
 
         rad.setStudent(student());
         rad.setStatus(StatusRada.PREDAT);
-        assertThrows(ConflictException.class, () -> service.predaj(9L, request, auth));
+        assertThrows(ConflictException.class, () -> service.predaj(9L, auth));
         verify(radovi, never()).save(any(Rad.class));
     }
 
@@ -248,6 +255,7 @@ class RadServiceTest {
         OcenaRadaRequest request = new OcenaRadaRequest();
         request.setPoeni(poeni);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
 
         assertThrows(BadRequestException.class, () -> service.oceni(9L, request, profesor));
@@ -268,6 +276,7 @@ class RadServiceTest {
         OcenaRadaRequest request = new OcenaRadaRequest();
         request.setPoeni(0.0);
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
         when(radovi.save(rad)).thenReturn(rad);
 
@@ -281,6 +290,7 @@ class RadServiceTest {
         request.setPoeni(5.0);
         assertThrows(ResourceNotFoundException.class, () -> service.oceni(9L, request, profesor));
         when(radovi.findById(9L)).thenReturn(Optional.of(new Rad()));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(new Rad()));
         assertThrows(ConflictException.class, () -> service.oceni(9L, request, profesor));
         verify(radovi, never()).save(any());
     }
@@ -291,13 +301,12 @@ class RadServiceTest {
         rad.setStudent(student());
         rad.setZadatak(zadatakSaPredmetom());
         when(radovi.findById(9L)).thenReturn(Optional.of(rad));
+        when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(predmeti.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(predajePredmet()));
-        PredajaRadaRequest predaja = new PredajaRadaRequest();
-        predaja.setRepoPutanjaResenja("https://github.com/student/resenje");
         OcenaRadaRequest ocena = new OcenaRadaRequest();
         ocena.setPoeni(10.0);
 
-        assertThrows(ConflictException.class, () -> service.predaj(9L, predaja, auth));
+        assertThrows(ConflictException.class, () -> service.predaj(9L, auth));
         assertThrows(ConflictException.class, () -> service.oceni(9L, ocena, profesor));
         verify(radovi, never()).save(any());
     }
@@ -312,6 +321,15 @@ class RadServiceTest {
     private static Zadatak zadatak() {
         Grupa grupa = new Grupa();
         grupa.setId(3L);
+        Termin termin = new Termin();
+        termin.setDatum(LocalDate.of(2030, 6, 15));
+        termin.setVremePocetak(LocalTime.of(10, 0));
+        termin.setVremeKraj(LocalTime.of(12, 0));
+        Predmet predmet = new Predmet();
+        predmet.setId(4L);
+        predmet.setNaziv("Razvoj softvera");
+        termin.setPredmet(predmet);
+        grupa.setTermin(termin);
         Zadatak zadatak = new Zadatak();
         zadatak.setId(5L);
         zadatak.setGrupa(grupa);

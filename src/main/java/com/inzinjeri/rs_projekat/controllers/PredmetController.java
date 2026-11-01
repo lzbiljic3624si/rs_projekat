@@ -18,6 +18,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.PutMapping;
+import org.springframework.web.bind.annotation.DeleteMapping;
 
 import java.util.List;
 
@@ -28,6 +30,19 @@ import java.util.List;
 public class PredmetController {
 
     private final PredmetService predmetService;
+
+    @PutMapping("/edit/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public PredmetResponse izmeni(@PathVariable Long id, @Valid @RequestBody PredmetRequest request) {
+        return EntityMappers.toResponse(predmetService.izmeni(id, request));
+    }
+
+    @DeleteMapping("/delete/{id}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void obrisi(@PathVariable Long id) {
+        predmetService.obrisi(id);
+    }
 
     @PostMapping("/add") // dodavanje predmeta
     @ResponseStatus(HttpStatus.CREATED)

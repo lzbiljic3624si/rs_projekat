@@ -12,6 +12,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.util.List;
 import java.util.Optional;
+import java.time.*;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -22,7 +23,9 @@ class PrijavaServiceTest {
     private final StudentRepository studenti = mock(StudentRepository.class);
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final PredajePredmetRepository predmeti = mock(PredajePredmetRepository.class);
-    private final PrijavaService service = new PrijavaService(prijave, studenti, grupe, predmeti);
+    private final PrijavaService service = new PrijavaService(prijave, studenti, grupe, predmeti,
+            mock(com.inzinjeri.rs_projekat.repositories.RadRepository.class),
+            Clock.fixed(Instant.parse("2030-06-15T07:00:00Z"), ZoneId.of("Europe/Belgrade")));
     private final Authentication studentAuth = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesorAuth = auth("profesor@test.rs", "ROLE_PROFESOR");
 
@@ -33,6 +36,7 @@ class PrijavaServiceTest {
         Grupa grupa = grupa();
         when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(student));
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        when(grupe.findByIdZaIzmenu(3L)).thenReturn(Optional.of(grupa));
         when(prijave.save(any())).thenAnswer(call -> {
             PrijavljenStudent prijava = call.getArgument(0);
             prijava.setId(8L);
@@ -50,6 +54,7 @@ class PrijavaServiceTest {
         student.setId(2L);
         when(studenti.pronadjiPoEmailu(studentAuth.getName())).thenReturn(Optional.of(student));
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        when(grupe.findByIdZaIzmenu(3L)).thenReturn(Optional.of(grupa()));
         when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> service.prijaviSe(3L, studentAuth));
@@ -63,6 +68,7 @@ class PrijavaServiceTest {
         prijava.setId(8L);
         prijava.setGrupa(grupa);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        when(grupe.findByIdZaIzmenu(3L)).thenReturn(Optional.of(grupa));
         when(predmeti.getPredmetiZaPredavaca(profesorAuth.getName())).thenReturn(List.of(veza()));
         when(prijave.findByGrupa_Id(3L)).thenReturn(List.of(prijava));
 
@@ -91,6 +97,7 @@ class PrijavaServiceTest {
         Grupa grupa = grupa();
         grupa.setTermin(null);
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        when(grupe.findByIdZaIzmenu(3L)).thenReturn(Optional.of(grupa));
         assertThrows(ConflictException.class, () -> service.prijaviSe(3L, studentAuth));
         verify(prijave, never()).save(any());
     }
@@ -98,6 +105,7 @@ class PrijavaServiceTest {
     @Test
     void tudjiProfesorNeVidiPrijaveGrupe() {
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa()));
+        when(grupe.findByIdZaIzmenu(3L)).thenReturn(Optional.of(grupa()));
         assertThrows(ForbiddenException.class, () -> service.prijavaZaGrupu(3L, profesorAuth));
         assertThrows(ForbiddenException.class, () -> service.prijavaZaGrupu(3L, studentAuth));
         verify(prijave, never()).findByGrupa_Id(any());
@@ -108,6 +116,9 @@ class PrijavaServiceTest {
         predmet.setId(4L);
         Termin termin = new Termin();
         termin.setPredmet(predmet);
+        termin.setDatum(LocalDate.of(2030, 6, 15));
+        termin.setVremePocetak(LocalTime.of(10, 0));
+        termin.setVremeKraj(LocalTime.of(12, 0));
         Grupa grupa = new Grupa();
         grupa.setId(3L);
         grupa.setTermin(termin);

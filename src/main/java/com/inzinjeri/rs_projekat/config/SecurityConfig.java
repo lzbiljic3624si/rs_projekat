@@ -2,11 +2,16 @@
 package com.inzinjeri.rs_projekat.config;
 
 import com.inzinjeri.rs_projekat.model.Uloga;
+import com.inzinjeri.rs_projekat.repositories.KorisnikRepository;
+import com.inzinjeri.rs_projekat.services.AuthService;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.core.convert.converter.Converter;
+import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -19,10 +24,12 @@ import org.springframework.security.crypto.password.DelegatingPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtEncoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtDecoder;
 import org.springframework.security.oauth2.jwt.NimbusJwtEncoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
+import org.springframework.security.oauth2.server.resource.InvalidBearerTokenException;
 import org.springframework.security.oauth2.server.resource.authentication.JwtGrantedAuthoritiesConverter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.web.cors.CorsConfiguration;
@@ -43,7 +50,8 @@ public class SecurityConfig {
     public static final String CLAIM_ULOGA = "uloga";
 
     @Bean
-    public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain securityFilterChain(HttpSecurity http,
+            ObjectProvider<KorisnikRepository> korisnici) throws Exception {
         http
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(Customizer.withDefaults())
@@ -57,19 +65,37 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/predmet/add",
                                 "/api/nalozi/**",
+                                "/api/studenti/**", "/api/profesori/**",
+                                "/api/rokovi/**", "/api/ucionice/**",
+                                "/api/termini/**", "/api/grupe/**",
                                 "/api/predaje-predmet",
                                 "/api/raspored/**",
                                 "/api/zadaci"
                         ).hasRole(Uloga.PROFESOR.name())
+                        .requestMatchers(HttpMethod.PUT,
+                                "/api/raspored/**",
+                                "/api/nalozi/**", "/api/studenti/**", "/api/profesori/**",
+                                "/api/rokovi/**", "/api/ucionice/**",
+                                "/api/termini/**", "/api/grupe/**",
+                                "/api/predmet/**", "/api/predaje-predmet/**", "/api/zadaci/**", "/api/rad/edit/**"
+                        ).hasRole(Uloga.PROFESOR.name())
+                        .requestMatchers(HttpMethod.DELETE,
+                                "/api/raspored/**",
+                                "/api/nalozi/**", "/api/studenti/**", "/api/profesori/**",
+                                "/api/rokovi/**", "/api/ucionice/**",
+                                "/api/termini/**", "/api/grupe/**",
+                                "/api/predmet/**", "/api/predaje-predmet/**", "/api/zadaci/**", "/api/rad/**"
+                        ).hasRole(Uloga.PROFESOR.name())
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth ->
                         oauth.jwt(jwt ->
-                                jwt.jwtAuthenticationConverter(jwtAuthenticationConverter())));
+                                jwt.jwtAuthenticationConverter(jwtAuthenticationConverter(korisnici))));
 
         return http.build();
     }
 
-    private JwtAuthenticationConverter jwtAuthenticationConverter() {
+    private Converter<Jwt, AbstractAuthenticationToken> jwtAuthenticationConverter(
+            ObjectProvider<KorisnikRepository> korisnici) {
         JwtGrantedAuthoritiesConverter authorities =
                 new JwtGrantedAuthoritiesConverter();
 
@@ -81,7 +107,18 @@ public class SecurityConfig {
 
         converter.setJwtGrantedAuthoritiesConverter(authorities);
 
-        return converter;
+        return jwt -> {
+            Object id = jwt.getClaim(AuthService.CLAIM_KORISNIK_ID);
+            if (!(id instanceof Number broj) || broj.longValue() <= 0) {
+                throw new InvalidBearerTokenException("Token nema ispravan identitet naloga");
+            }
+            korisnici.getObject().findById(broj.longValue())
+                    .filter(k -> jwt.getSubject() != null && jwt.getSubject().equals(k.getEmail())
+                            && k.getUloga() != null
+                            && k.getUloga().name().equals(jwt.getClaim(CLAIM_ULOGA)))
+                    .orElseThrow(() -> new InvalidBearerTokenException("Token vise ne odgovara nalogu"));
+            return converter.convert(jwt);
+        };
     }
 
     @Bean

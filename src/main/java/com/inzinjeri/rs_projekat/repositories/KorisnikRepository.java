@@ -9,6 +9,10 @@ public interface KorisnikRepository extends JpaRepository<Korisnik, Long> {
 
     Optional<Korisnik> findByEmail(String email);
 
+    Optional<Korisnik> findByStudent_Id(Long studentId);
+
+    Optional<Korisnik> findByProfesor_Id(Long profesorId);
+
     boolean existsByEmail(String email);
 
     boolean existsByEmailIgnoreCase(String email);

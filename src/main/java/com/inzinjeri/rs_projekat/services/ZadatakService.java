@@ -23,6 +23,49 @@ public class ZadatakService {
     private final StudentRepository studentRepository;
     private final PrijavljenStudentRepository prijavljenStudentRepository;
     private final PredajePredmetRepository predajePredmetRepository;
+    private final RadRepository radRepository;
+
+    @Transactional
+    public Zadatak izmeni(Long id, ZadatakRequest request, Authentication auth) {
+        Zadatak zadatak = zaProfesora(id, auth);
+        Grupa grupa = zadatak.getGrupa();
+        if (!grupa.getId().equals(request.getGrupaId())) {
+            throw new ConflictException("Zadatak ne moze da promeni grupu");
+        }
+        if (radRepository.existsByZadatak_Id(id)) {
+            throw new ConflictException("Zadatak je vec preuzet i ne moze da se menja");
+        }
+        if (!request.getRepoPutanja().equals(zadatak.getRepoPutanja())
+                && zadatakRepository.existsByRepoPutanja(request.getRepoPutanja())) {
+            throw new ConflictException("Putanja zadatka vec postoji");
+        }
+        zadatak.setNaziv(request.getNaziv());
+        zadatak.setRepoPutanja(request.getRepoPutanja());
+        return zadatakRepository.save(zadatak);
+    }
+
+    @Transactional
+    public void obrisi(Long id, Authentication auth) {
+        Zadatak zadatak = zaProfesora(id, auth);
+        if (radRepository.existsByZadatak_Id(id)) {
+            throw new ConflictException("Zadatak ima radove");
+        }
+        zadatakRepository.delete(zadatak);
+        zadatakRepository.flush();
+    }
+
+    private Zadatak zaProfesora(Long id, Authentication auth) {
+        Zadatak zadatak = zadatakRepository.findByIdZaIzmenu(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Zadatak ne postoji"));
+        Grupa grupa = zadatak.getGrupa();
+        if (grupa == null) {
+            throw new ConflictException("Zadatak nema grupu");
+        }
+        if (!profesorPredajePredmet(auth, predmetId(grupa))) {
+            throw new ForbiddenException("Profesor ne predaje predmet grupe");
+        }
+        return zadatak;
+    }
 
     @Transactional
     public ZadatakResponse zaGrupu(Long grupaId, Authentication auth) {

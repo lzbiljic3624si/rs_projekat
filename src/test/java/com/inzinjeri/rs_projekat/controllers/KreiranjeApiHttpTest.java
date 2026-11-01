@@ -37,6 +37,8 @@ class KreiranjeApiHttpTest {
     @MockitoBean private KorisnikRepository korisnici;
     @MockitoBean private PredmetRepository predmeti;
     @MockitoBean private PredajePredmetRepository veze;
+    @MockitoBean private RadRepository radovi;
+    @MockitoBean private PrijavljenStudentRepository prijave;
     private final Map<String, Korisnik> nalozi = new HashMap<>();
 
     @BeforeEach
@@ -59,6 +61,8 @@ class KreiranjeApiHttpTest {
         });
         when(korisnici.findByEmail(anyString())).thenAnswer(invocation ->
                 Optional.ofNullable(nalozi.get(invocation.getArgument(0))));
+        when(korisnici.findById(anyLong())).thenAnswer(invocation ->
+                nalozi.values().stream().filter(k -> k.getId().equals(invocation.getArgument(0))).findFirst());
         when(korisnici.existsByEmailIgnoreCase(anyString())).thenAnswer(invocation ->
                 nalozi.keySet().stream().anyMatch(email -> email.equalsIgnoreCase(invocation.getArgument(0))));
     }
@@ -128,7 +132,8 @@ class KreiranjeApiHttpTest {
         mvc.perform(post(putanja).header("Authorization", "Bearer " + token("STUDENT"))
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
-        verifyNoInteractions(studenti, profesori, korisnici, predmeti, veze);
+        verifyNoInteractions(studenti, profesori, predmeti, veze);
+        verify(korisnici, never()).saveAndFlush(any());
     }
 
     @ParameterizedTest
@@ -137,7 +142,8 @@ class KreiranjeApiHttpTest {
         mvc.perform(post(putanja).header("Authorization", "Bearer " + token("PROFESOR"))
                         .contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
-        verifyNoInteractions(studenti, profesori, korisnici, predmeti, veze);
+        verifyNoInteractions(studenti, profesori, predmeti, veze);
+        verify(korisnici, never()).saveAndFlush(any());
     }
 
     @ParameterizedTest
@@ -150,7 +156,8 @@ class KreiranjeApiHttpTest {
                                 {"ime":"%s","prezime":"%s","smer":"RN","brIndeksa":"12/2023","godUpisa":2023}
                                 """.formatted(ime, prezime)))
                 .andExpect(status().isBadRequest());
-        verifyNoInteractions(studenti, profesori, korisnici);
+        verifyNoInteractions(studenti, profesori);
+        verify(korisnici, never()).saveAndFlush(any());
     }
 
     @ParameterizedTest
@@ -194,9 +201,13 @@ class KreiranjeApiHttpTest {
     }
 
     private String token(String uloga) {
+        Korisnik korisnik = new Korisnik(); korisnik.setId(100L);
+        korisnik.setEmail("ocenjivac@raf.rs"); korisnik.setUloga(Uloga.valueOf(uloga));
+        when(korisnici.findById(100L)).thenReturn(Optional.of(korisnik));
         Instant sada = Instant.now();
         JwtClaimsSet claims = JwtClaimsSet.builder().subject("ocenjivac@raf.rs")
-                .issuedAt(sada).expiresAt(sada.plusSeconds(3600)).claim("uloga", uloga).build();
+                .issuedAt(sada).expiresAt(sada.plusSeconds(3600)).claim("uloga", uloga)
+                .claim("korisnikId", 100L).build();
         return jwtEncoder.encode(JwtEncoderParameters.from(
                 JwsHeader.with(MacAlgorithm.HS256).build(), claims)).getTokenValue();
     }

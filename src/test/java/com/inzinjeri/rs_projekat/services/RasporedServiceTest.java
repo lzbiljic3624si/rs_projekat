@@ -14,6 +14,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.Clock;
 import java.util.List;
 import java.util.Optional;
 
@@ -28,7 +29,9 @@ class RasporedServiceTest {
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final PredmetRepository predmeti = mock(PredmetRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
-    private final RasporedService service = new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predaje);
+    private final RasporedService service = new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predaje,
+            mock(RadRepository.class), mock(PrijavljenStudentRepository.class), mock(ZadatakRepository.class),
+            Clock.systemDefaultZone());
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
 

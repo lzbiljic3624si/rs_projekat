@@ -2,6 +2,9 @@ package com.inzinjeri.rs_projekat.config;
 
 import com.inzinjeri.rs_projekat.controllers.PredmetController;
 import com.inzinjeri.rs_projekat.model.Predmet;
+import com.inzinjeri.rs_projekat.model.Korisnik;
+import com.inzinjeri.rs_projekat.model.Uloga;
+import com.inzinjeri.rs_projekat.repositories.KorisnikRepository;
 import com.inzinjeri.rs_projekat.services.PredmetService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +20,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.*;
@@ -29,6 +33,7 @@ class SecurityHttpTest {
     @Autowired private MockMvc mvc;
     @Autowired private JwtEncoder encoder;
     @MockitoBean private PredmetService predmeti;
+    @MockitoBean private KorisnikRepository korisnici;
 
     @Test
     void bezTokenaVraca401BezPreusmeravanja() throws Exception {
@@ -97,6 +102,7 @@ class SecurityHttpTest {
     void loginPutanjaNeZahtevaPrijavu() throws Exception {
         mvc.perform(post("/api/auth/login")).andExpect(status().isOk())
                 .andExpect(content().string("login-dozvoljen"));
+        verifyNoInteractions(korisnici);
     }
 
     @Test
@@ -118,12 +124,16 @@ class SecurityHttpTest {
     }
 
     private String token(String uloga) {
+        Korisnik korisnik = new Korisnik(); korisnik.setId(1L);
+        korisnik.setEmail("korisnik@test.rs"); korisnik.setUloga(Uloga.valueOf(uloga));
+        when(korisnici.findById(1L)).thenReturn(Optional.of(korisnik));
         return token(encoder, uloga, Instant.now().plusSeconds(3600));
     }
 
     private String token(JwtEncoder jwtEncoder, String uloga, Instant istek) {
         var claims = JwtClaimsSet.builder().subject("korisnik@test.rs")
-                .issuedAt(istek.minusSeconds(3600)).expiresAt(istek).claim("uloga", uloga).build();
+                .issuedAt(istek.minusSeconds(3600)).expiresAt(istek).claim("uloga", uloga)
+                .claim("korisnikId", 1L).build();
         return jwtEncoder.encode(JwtEncoderParameters.from(JwsHeader.with(MacAlgorithm.HS256).build(), claims))
                 .getTokenValue();
     }
