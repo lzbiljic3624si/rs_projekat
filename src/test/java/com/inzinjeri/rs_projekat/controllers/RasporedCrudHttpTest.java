@@ -102,10 +102,12 @@ class RasporedCrudHttpTest {
         when(termini.pronadjiPoPredmetuIRoku(4L, 6L)).thenReturn(List.of(termin));
         when(grupe.getGrupeZaTermin(7L)).thenReturn(List.of(grupa));
         for (String path : List.of("/rokovi", "/ucionice", "/termini?predmetId=4&rokId=6", "/grupe?terminId=7")) {
+            if (prefix.equals("/api/raspored") && path.startsWith("/termini")) continue;
             mvc.perform(get(prefix + path).header("Authorization", student())).andExpect(status().isOk())
                     .andExpect(jsonPath("$[0].id").isNumber());
         }
         for (String path : List.of("/rokovi/6", "/ucionice/5", "/termini/7", "/grupe/3")) {
+            if (prefix.equals("/api/raspored") && path.startsWith("/termini")) continue;
             mvc.perform(get(prefix + path).header("Authorization", student())).andExpect(status().isOk())
                     .andExpect(jsonPath("$.id").isNumber());
         }
@@ -118,6 +120,7 @@ class RasporedCrudHttpTest {
         String[] bodies = {rokJson, ucionicaJson, terminJson, grupaJson};
         int[] ids = {6, 5, 7, 3};
         for (int i = 0; i < resources.length; i++) {
+            if (prefix.equals("/api/raspored") && resources[i].equals("termini")) continue;
             mvc.perform(post(prefix + "/" + resources[i]).header("Authorization", profesor())
                             .contentType("application/json").content(bodies[i]))
                     .andExpect(status().isCreated()).andExpect(content().string(Integer.toString(ids[i])));
@@ -128,15 +131,28 @@ class RasporedCrudHttpTest {
                     .andExpect(status().isNoContent()).andExpect(content().string(""));
         }
         verify(rokovi).delete(rok); verify(ucionice).delete(ucionica);
-        verify(termini).delete(termin); verify(grupe).delete(grupa);
+        if (prefix.equals("/api")) verify(termini).delete(termin);
+        verify(grupe).delete(grupa);
     }
 
     @Test
-    void zadrzavaStarePutPutanje() throws Exception {
-        mvc.perform(put("/api/raspored/termini/7").header("Authorization", profesor())
-                        .contentType("application/json").content(terminJson)).andExpect(status().isOk());
+    void zadrzavaStaruPutanjuGrupe() throws Exception {
         mvc.perform(put("/api/raspored/grupe/3").header("Authorization", profesor())
                         .contentType("application/json").content(grupaJson)).andExpect(status().isOk());
+    }
+
+    @Test
+    void terminiNemajuDupluPutanju() throws Exception {
+        mvc.perform(get("/api/raspored/termini").header("Authorization", student())
+                .param("predmetId", "4").param("rokId", "6")).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void neOtvaraNovePutPutanje() throws Exception {
+        mvc.perform(put("/api/termini/7").header("Authorization", profesor())
+                .contentType("application/json").content(terminJson)).andExpect(status().isMethodNotAllowed());
+        mvc.perform(put("/api/grupe/3").header("Authorization", profesor())
+                .contentType("application/json").content(grupaJson)).andExpect(status().isMethodNotAllowed());
     }
 
     @ParameterizedTest
@@ -156,6 +172,7 @@ class RasporedCrudHttpTest {
         String[] bodies = {rokJson, ucionicaJson, terminJson, grupaJson};
         for (int i = 0; i < resources.length; i++) {
             String resource = resources[i];
+            if (prefix.equals("/api/raspored") && resource.equals("termini")) continue;
             mvc.perform(get(prefix + "/" + resource + "/99").header("Authorization", student()))
                     .andExpect(status().isNotFound());
             mvc.perform(delete(prefix + "/" + resource + "/delete/99").header("Authorization", profesor()))
@@ -246,6 +263,7 @@ class RasporedCrudHttpTest {
         when(termini.existsByUcionica_Id(5L)).thenReturn(true);
         when(grupe.existsByTermin_Id(7L)).thenReturn(true);
         for (String path : List.of("/rokovi/delete/6", "/ucionice/delete/5", "/termini/delete/7")) {
+            if (prefix.equals("/api/raspored") && path.startsWith("/termini")) continue;
             mvc.perform(delete(prefix + path).header("Authorization", profesor())).andExpect(status().isConflict());
         }
         verify(rokovi, never()).delete(any()); verify(ucionice, never()).delete(any());

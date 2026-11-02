@@ -31,6 +31,8 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
 
     boolean existsByZadatak_Grupa_Id(Long grupaId);
 
+    List<Rad> findByZadatak_Grupa_Termin_Id(Long terminId);
+
     @Query("select r from Rad r where r.zadatak.grupa.termin.predmet.id = :predmetId and (:status is null or r.status = :status)")
     List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") StatusRada status);
 }

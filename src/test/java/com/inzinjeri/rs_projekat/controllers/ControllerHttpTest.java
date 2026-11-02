@@ -33,7 +33,8 @@ class ControllerHttpTest {
     private final Authentication auth = new UsernamePasswordAuthenticationToken("student@test.rs", null);
     private final MockMvc mvc = MockMvcBuilders.standaloneSetup(
             new PredmetController(predmeti), new PrijavaController(prijave), new RadController(radovi),
-            new RasporedController(raspored), new ZadatakController(zadaci))
+            new RokController(raspored), new UcionicaController(raspored),
+            new TerminController(raspored), new GrupaController(raspored), new ZadatakController(zadaci))
             .setControllerAdvice(new GlobalExceptionHandler()).build();
 
     @Test
@@ -162,7 +163,7 @@ class ControllerHttpTest {
 
         mvc.perform(get("/api/raspored/rokovi")).andExpect(status().isOk()).andExpect(jsonPath("$[0].skolskaGodina").value(2026));
         mvc.perform(get("/api/raspored/ucionice")).andExpect(status().isOk()).andExpect(jsonPath("$[0].naziv").value("Lab 1"));
-        mvc.perform(get("/api/raspored/termini").param("predmetId", "4").param("rokId", "6"))
+        mvc.perform(get("/api/termini").param("predmetId", "4").param("rokId", "6"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].vremePocetka").value("10:00:00"));
         mvc.perform(get("/api/raspored/grupe").param("terminId", "7"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].termin.ucionica.id").value(5));
@@ -183,7 +184,7 @@ class ControllerHttpTest {
                         .content("{\"naziv\":\"Lab 1\"}"))
                 .andExpect(status().isCreated()).andExpect(content().string("5"));
         LocalDate datum = LocalDate.now().plusDays(1);
-        mvc.perform(post("/api/raspored/termini").principal(auth).contentType("application/json").content("""
+        mvc.perform(post("/api/termini").principal(auth).contentType("application/json").content("""
                 {"datum":"%s","vremePocetak":"10:00","vremeKraja":"12:00","predmetId":4,"rokId":6,"ucionicaId":5}
                 """.formatted(datum))).andExpect(status().isCreated()).andExpect(content().string("7"));
         mvc.perform(post("/api/raspored/grupe").principal(auth).contentType("application/json")
@@ -215,7 +216,7 @@ class ControllerHttpTest {
 
     @ParameterizedTest
     @ValueSource(strings = {"/api/predmet/add", "/api/rad/9/oceni", "/api/zadaci",
-            "/api/raspored/rokovi", "/api/raspored/ucionice", "/api/raspored/termini", "/api/raspored/grupe"})
+            "/api/raspored/rokovi", "/api/raspored/ucionice", "/api/termini", "/api/raspored/grupe"})
     void praznoTeloNeDolaziDoServisa(String putanja) throws Exception {
         mvc.perform(post(putanja).principal(auth).contentType("application/json").content("{}"))
                 .andExpect(status().isBadRequest());
@@ -231,7 +232,7 @@ class ControllerHttpTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/api/predmet/neispravan", "/api/raspored/termini", "/api/raspored/grupe?terminId=tekst"})
+    @ValueSource(strings = {"/api/predmet/neispravan", "/api/termini", "/api/raspored/grupe?terminId=tekst"})
     void neispravanIdINedostajuciParametriVraca400(String putanja) throws Exception {
         mvc.perform(get(putanja)).andExpect(status().isBadRequest());
         verifyNoInteractions(predmeti, raspored);
@@ -239,7 +240,7 @@ class ControllerHttpTest {
 
     @Test
     void datumUProslostiSeOdbijaPreServisa() throws Exception {
-        mvc.perform(post("/api/raspored/termini").principal(auth).contentType("application/json").content("""
+        mvc.perform(post("/api/termini").principal(auth).contentType("application/json").content("""
                 {"datum":"%s","vremePocetak":"10:00","vremeKraja":"12:00","predmetId":4,"rokId":6,"ucionicaId":5}
                 """.formatted(LocalDate.now().minusDays(1)))).andExpect(status().isBadRequest());
         verifyNoInteractions(raspored);

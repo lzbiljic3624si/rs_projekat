@@ -27,4 +27,18 @@ public final class VremeTermina {
             throw new ConflictException("Rad je dozvoljen samo tokom termina");
         }
     }
+
+    public static void proveriPreuzimanje(Termin termin, LocalDateTime sada) {
+        proveriUToku(termin, sada);
+        if (sada.isAfter(pocetak(termin).plusMinutes(30))) {
+            throw new ConflictException("Zadatak moze da se preuzme najkasnije 30 minuta od pocetka termina");
+        }
+    }
+
+    public static void proveriPredaju(Termin termin, LocalDateTime sada) {
+        LocalDateTime pocetak = pocetak(termin);
+        if (sada.isBefore(pocetak) || sada.isAfter(termin.getDatum().atTime(termin.getVremeKraj()).plusMinutes(5))) {
+            throw new ConflictException("Rad moze da se preda najkasnije 5 minuta posle kraja termina");
+        }
+    }
 }

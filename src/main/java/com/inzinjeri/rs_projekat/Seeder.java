@@ -92,11 +92,10 @@ public class Seeder implements CommandLineRunner {
             terminList.add(terminRepository.save(t));
         }
 
-        String[] grupe = {"101", "102", "201", "202", "301"};
         List<Grupa> grupaList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Grupa g = new Grupa();
-            g.setNaziv(grupe[i - 1]);
+            g.setNaziv("Grupa" + i);
             g.setTermin(terminList.get(i - 1));
             grupaList.add(grupaRepository.save(g));
         }

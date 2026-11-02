@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/rokovi")
+@RequestMapping({"/api/rokovi", "/api/raspored/rokovi"})
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
 public class RokController {

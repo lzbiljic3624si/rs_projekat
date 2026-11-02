@@ -29,7 +29,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.JwtRequestPostProcessor;
 
-@WebMvcTest({RadController.class, PrijavaController.class, RasporedController.class,
+@WebMvcTest({RadController.class, PrijavaController.class, TerminController.class, GrupaController.class,
         ZadatakController.class, PredajePredmetController.class, AuthController.class})
 @Import({SecurityConfig.class, RadService.class, PrijavaService.class, RasporedService.class,
         ZadatakService.class, PredajePredmetService.class, AuthService.class, PristupService.class})
@@ -127,7 +127,7 @@ class DopuneApiHttpTest {
     void izmenaTerminaCuvaIdINoviRaspored() throws Exception {
         when(termini.postojiPreklapanje(2L, termin.getDatum(), LocalTime.of(11, 0), LocalTime.of(13, 0)))
                 .thenReturn(true);
-        mvc.perform(put("/api/raspored/termini/6").with(profesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(profesor()).contentType("application/json")
                         .content(terminJson("11:00", "13:00")))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(6))
                 .andExpect(jsonPath("$.vremePocetka").value("11:00:00"));
@@ -139,7 +139,7 @@ class DopuneApiHttpTest {
     void preklapanjeNeMenjaTermin() throws Exception {
         when(termini.postojiPreklapanjeOsim(6L, 2L, termin.getDatum(), LocalTime.of(11, 0), LocalTime.of(13, 0)))
                 .thenReturn(true);
-        mvc.perform(put("/api/raspored/termini/6").with(profesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(profesor()).contentType("application/json")
                 .content(terminJson("11:00", "13:00"))).andExpect(status().isConflict());
         assertEquals(LocalTime.of(10, 0), termin.getVremePocetak());
         verify(termini, never()).save(any());
@@ -147,9 +147,9 @@ class DopuneApiHttpTest {
 
     @Test
     void noviPocetakNeSmeBitiUProslostiINeMenjaSePredmet() throws Exception {
-        mvc.perform(put("/api/raspored/termini/6").with(profesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(profesor()).contentType("application/json")
                 .content(terminJson("08:00", "13:00"))).andExpect(status().isConflict());
-        mvc.perform(put("/api/raspored/termini/6").with(profesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(profesor()).contentType("application/json")
                 .content(terminJson("11:00", "13:00").replace("\"predmetId\":4", "\"predmetId\":99")))
                 .andExpect(status().isConflict());
         assertEquals(LocalTime.of(10, 0), termin.getVremePocetak());
@@ -158,10 +158,10 @@ class DopuneApiHttpTest {
 
     @Test
     void tudjiProfesorIProtekliTerminNeMoguDaMenjajuRaspored() throws Exception {
-        mvc.perform(put("/api/raspored/termini/6").with(tudjiProfesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(tudjiProfesor()).contentType("application/json")
                 .content(terminJson("11:00", "13:00"))).andExpect(status().isForbidden());
         vreme("10:00:00");
-        mvc.perform(put("/api/raspored/termini/6").with(profesor()).contentType("application/json")
+        mvc.perform(put("/api/termini/edit/6").with(profesor()).contentType("application/json")
                 .content(terminJson("11:00", "13:00"))).andExpect(status().isConflict());
         assertEquals(LocalTime.of(10, 0), termin.getVremePocetak());
     }
@@ -308,7 +308,7 @@ class DopuneApiHttpTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"/api/zadaci/5", "/api/raspored/grupe/3", "/api/raspored/termini/6"})
+    @CsvSource({"/api/zadaci/5", "/api/raspored/grupe/3", "/api/termini/edit/6"})
     void studentITudjiProfesorNeMoguDaMenjajuPodatke(String putanja) throws Exception {
         mvc.perform(put(putanja).with(student()).contentType("application/json").content("{}"))
                 .andExpect(status().isForbidden());
@@ -393,16 +393,25 @@ class DopuneApiHttpTest {
     }
 
     @ParameterizedTest
-    @CsvSource({"09:59:59,409", "10:00:00,201", "11:59:59,201", "12:00:00,409"})
-    void preuzimanjeSamoTokomTermina(String vreme, int status) throws Exception {
+    @CsvSource({"09:59:59,409", "10:00:00,201", "10:30:00,201", "10:30:01,409", "11:59:59,409", "12:00:00,409"})
+    void preuzimanjeSamoUPrvihTridesetMinutaTermina(String vreme, int status) throws Exception {
         vreme(vreme);
         when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
         mvc.perform(post("/api/rad/5/preuzmi").with(student())).andExpect(status().is(status));
     }
 
     @ParameterizedTest
-    @CsvSource({"09:59:59,409", "10:00:00,200", "11:59:59,200", "12:00:00,409"})
-    void predajaSamoTokomTermina(String vreme, int status) throws Exception {
+    @CsvSource({"09:59:59,409", "10:00:00,200", "10:30:00,200", "10:30:01,409"})
+    void studentVidiZadatakSamoDokMozeDaGaPreuzme(String vreme, int status) throws Exception {
+        vreme(vreme);
+        when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
+        mvc.perform(get("/api/zadaci/grupa/3").with(student())).andExpect(status().is(status));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"09:59:59,409", "10:00:00,200", "11:59:59,200", "12:00:00,200", "12:05:00,200", "12:05:01,409"})
+    void predajaDoPetMinutaPosleKrajaTermina(String vreme, int status) throws Exception {
         vreme(vreme);
         mvc.perform(post("/api/rad/8/predaj").with(student()).contentType("application/json")
                 .content("{\"repoPutanjaResenja\":\"https://github.com/test/resenje\"}"))

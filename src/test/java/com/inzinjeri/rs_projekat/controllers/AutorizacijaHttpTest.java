@@ -29,7 +29,8 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 @WebMvcTest({PredmetController.class, PrijavaController.class, RadController.class,
-        RasporedController.class, ZadatakController.class})
+        RokController.class, UcionicaController.class, TerminController.class, GrupaController.class,
+        ZadatakController.class})
 @Import({SecurityConfig.class, PristupService.class})
 class AutorizacijaHttpTest {
     @Autowired private MockMvc mvc;
@@ -121,11 +122,11 @@ class AutorizacijaHttpTest {
                 new Endpoint("/api/rad/5/preuzmi", "", 201, 403, 403, 403),
                 new Endpoint("/api/raspored/rokovi", null, 200, 200, 200, 200),
                 new Endpoint("/api/raspored/ucionice", null, 200, 200, 200, 200),
-                new Endpoint("/api/raspored/termini?predmetId=4&rokId=6", null, 200, 200, 200, 200),
+                new Endpoint("/api/termini?predmetId=4&rokId=6", null, 200, 200, 200, 200),
                 new Endpoint("/api/raspored/grupe?terminId=7", null, 200, 200, 200, 200),
                 new Endpoint("/api/raspored/rokovi", "{\"naziv\":\"Jun\",\"skolskaGodina\":2026}", 403, 201, 403, 201),
                 new Endpoint("/api/raspored/ucionice", "{\"naziv\":\"Lab\"}", 403, 201, 403, 201),
-                new Endpoint("/api/raspored/termini", termin, 403, 201, 403, 403),
+                new Endpoint("/api/termini", termin, 403, 201, 403, 403),
                 new Endpoint("/api/raspored/grupe", "{\"naziv\":\"G1\",\"terminId\":7}", 403, 201, 403, 403),
                 new Endpoint("/api/zadaci/grupa/3", null, 200, 200, 403, 403),
                 new Endpoint("/api/zadaci", "{\"naziv\":\"Z1\",\"grupaId\":3,\"repoPutanja\":\"https://github.com/test/zadatak\"}", 403, 201, 403, 403)

@@ -7,10 +7,17 @@ import com.inzinjeri.rs_projekat.controllers.request.ZadatakRequest;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.Clock;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.List;
 import java.util.Optional;
 
@@ -25,7 +32,7 @@ class ZadatakServiceTest {
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
     private final ZadatakService service = new ZadatakService(zadaci, grupe, studenti, prijave, predaje,
-            mock(RadRepository.class));
+            mock(RadRepository.class), Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")));
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
 
@@ -47,6 +54,35 @@ class ZadatakServiceTest {
         assertEquals(9L, odgovor.getId());
         assertEquals("Prvi zadatak", odgovor.getNaziv());
         assertEquals(3L, odgovor.getGrupa().getId());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"10:31", "09:59"})
+    void studentNeVidiPutanjuZadatkaVanPrvihTridesetMinuta(String pocetak) {
+        Grupa grupa = grupa();
+        grupa.getTermin().setVremePocetak(LocalTime.parse(pocetak));
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        Student studentModel = new Student();
+        studentModel.setId(2L);
+        when(studenti.pronadjiPoEmailu(student.getName())).thenReturn(Optional.of(studentModel));
+        when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
+
+        assertThrows(ConflictException.class, () -> service.zaGrupu(3L, student));
+        verify(zadaci, never()).pronadjiPoGrupi(any());
+    }
+
+    @Test
+    void profesorVidiZadatakPreTermina() {
+        Grupa grupa = grupa();
+        grupa.getTermin().setVremePocetak(LocalTime.of(11, 0));
+        Zadatak zadatak = new Zadatak();
+        zadatak.setGrupa(grupa);
+        zadatak.setRepoPutanja("https://github.com/test/zadatak");
+        when(grupe.findById(3L)).thenReturn(Optional.of(grupa));
+        when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
+
+        assertEquals("https://github.com/test/zadatak", service.zaGrupu(3L, profesor).getRepoPutanja());
     }
 
     @Test
@@ -146,6 +182,9 @@ class ZadatakServiceTest {
         predmet.setId(4L);
         Termin termin = new Termin();
         termin.setPredmet(predmet);
+        termin.setDatum(LocalDate.of(2030, 6, 15));
+        termin.setVremePocetak(LocalTime.of(10, 0));
+        termin.setVremeKraj(LocalTime.of(12, 0));
         Grupa grupa = new Grupa();
         grupa.setId(3L);
         grupa.setTermin(termin);

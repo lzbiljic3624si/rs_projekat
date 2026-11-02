@@ -31,7 +31,7 @@ public class TerminController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('PROFESOR')")
+    @PreAuthorize("@pristupService.profesorPredajePredmet(authentication, #request.predmetId)")
     @ResponseStatus(HttpStatus.CREATED)
     public Long dodaj(@Valid @RequestBody TerminRequest request, Authentication auth) {
         return rasporedService.dodajTermin(request, auth);

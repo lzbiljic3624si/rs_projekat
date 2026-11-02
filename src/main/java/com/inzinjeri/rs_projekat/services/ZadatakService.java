@@ -9,10 +9,14 @@ import com.inzinjeri.rs_projekat.model.Grupa;
 import com.inzinjeri.rs_projekat.model.Zadatak;
 import com.inzinjeri.rs_projekat.repositories.*;
 import com.inzinjeri.rs_projekat.utils.EntityMappers;
+import com.inzinjeri.rs_projekat.utils.VremeTermina;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.time.Clock;
+import java.time.LocalDateTime;
 
 @Service
 @RequiredArgsConstructor
@@ -24,6 +28,7 @@ public class ZadatakService {
     private final PrijavljenStudentRepository prijavljenStudentRepository;
     private final PredajePredmetRepository predajePredmetRepository;
     private final RadRepository radRepository;
+    private final Clock clock;
 
     @Transactional
     public Zadatak izmeni(Long id, ZadatakRequest request, Authentication auth) {
@@ -79,8 +84,13 @@ public class ZadatakService {
                         .existsByStudent_IdAndGrupa_Id(student.getId(), grupaId))
                 .orElse(false);
 
-        if (!studentGrupe && !profesorPredajePredmet(auth, predmetId)) {
+        boolean profesorPredmeta = profesorPredajePredmet(auth, predmetId);
+        if (!studentGrupe && !profesorPredmeta) {
             throw new ForbiddenException("Nemaš pristup zadatku ove grupe");
+        }
+
+        if (!profesorPredmeta) {
+            VremeTermina.proveriPreuzimanje(grupa.getTermin(), LocalDateTime.now(clock));
         }
 
         Zadatak zadatak = zadatakRepository.pronadjiPoGrupi(grupaId)

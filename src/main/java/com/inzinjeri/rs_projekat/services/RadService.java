@@ -148,7 +148,7 @@ public class RadService {
         }
 
         LocalDateTime sada = LocalDateTime.now(clock);
-        VremeTermina.proveriUToku(rad.getZadatak() == null || rad.getZadatak().getGrupa() == null
+        VremeTermina.proveriPredaju(rad.getZadatak() == null || rad.getZadatak().getGrupa() == null
                 ? null : rad.getZadatak().getGrupa().getTermin(), sada);
 
         if (rad.getRepoPutanjaResenja() == null || rad.getRepoPutanjaResenja().isBlank()) {
@@ -187,7 +187,7 @@ public class RadService {
         }
 
         LocalDateTime sada = LocalDateTime.now(clock);
-        VremeTermina.proveriUToku(zadatak.getGrupa().getTermin(), sada);
+        VremeTermina.proveriPreuzimanje(zadatak.getGrupa().getTermin(), sada);
 
         Rad rad = new Rad();
         rad.setStudent(student);

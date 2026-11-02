@@ -14,7 +14,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/ucionice")
+@RequestMapping({"/api/ucionice", "/api/raspored/ucionice"})
 @RequiredArgsConstructor
 @PreAuthorize("hasAnyRole('STUDENT', 'PROFESOR')")
 public class UcionicaController {
