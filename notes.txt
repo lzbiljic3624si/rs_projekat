@@ -1,4 +1,9 @@
 TODO: PREGLED I OCENJIVANJE
 
-TODO koliko moze da se kasni sa predajom zadatka????
-TODO: Da li su nam neophodni komenatri u modelu ????
+TODO: Da li su nam neophodni komenatri u modelu
+    Treba da se napravi novi model i sve ostalo ceo komplet
+    U editoru profesor klikne na liniju koda koju zeli da komentarise i onda napise komentar
+    U modelu se cuva id, Rad, sadrzaj, linija - pa na osnovu toga sve servere, controllere i ostalo
+
+
+TODO: Uslov za predmet obrisati ili zameniti za broj poena - seeder
