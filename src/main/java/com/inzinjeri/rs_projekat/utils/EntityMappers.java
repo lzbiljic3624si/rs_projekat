@@ -126,4 +126,16 @@ public final class EntityMappers {
         response.setPredmet(toResponse(predajePredmet.getPredmet()));
         return response;
     }
+
+    public static KomentarResponse toResponse(Komentar komentar) {
+        KomentarResponse response = new KomentarResponse();
+
+        response.setId(komentar.getId());
+        response.setKomentar(komentar.getKomentar());
+        response.setRadId(komentar.getRad().getId());
+        response.setPutanjaFajla(komentar.getPutanjaFajla());
+        response.setBrojLinije(komentar.getBrojLinije());
+
+        return response;
+    }
 }
