@@ -53,7 +53,7 @@ class RadServiceTest {
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predmeti = mock(PredajePredmetRepository.class);
     private final RadService service = new RadService(radovi, studenti, zadaci, prijave, predmeti,
-            Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")));
+            Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")), mock(GitHubService.class));
     private final Authentication auth = new UsernamePasswordAuthenticationToken("student@example.com", null);
     private final Authentication profesor = new UsernamePasswordAuthenticationToken("profesor@example.com", null);
 
@@ -206,7 +206,7 @@ class RadServiceTest {
     }
 
     @Test
-    void predajCuvaResenjeSamoZaSopstveniPreuzetiRad() {
+    void predajaBezFajlovaNeMozeDaOznaciRadKaoPredat() {
         Rad rad = new Rad();
         rad.setId(9L);
         rad.setStudent(student());
@@ -217,14 +217,12 @@ class RadServiceTest {
         when(radovi.findByIdZaIzmenu(9L)).thenReturn(Optional.of(rad));
         when(radovi.save(rad)).thenReturn(rad);
 
-        var odgovor = service.predaj(9L, auth);
+        assertThrows(BadRequestException.class, () -> service.predaj(9L, auth));
 
         assertEquals("https://github.com/student/resenje", rad.getRepoPutanjaResenja());
-        assertNotNull(rad.getVremePredaje());
-        assertEquals(StatusRada.PREDAT, rad.getStatus());
-        assertEquals(StatusRada.PREDAT, odgovor.getStatus());
-        assertEquals(rad.getVremePredaje(), odgovor.getVremePredaje());
-        verify(radovi).save(rad);
+        assertNull(rad.getVremePredaje());
+        assertEquals(StatusRada.PREUZET, rad.getStatus());
+        verify(radovi, never()).save(rad);
     }
 
     @Test

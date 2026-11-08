@@ -9,7 +9,9 @@ import java.time.LocalDateTime;
 
 @Entity
 @Data
-@Table(name="rad", uniqueConstraints = @UniqueConstraint(columnNames = {"student", "zadatak_id"}))
+@Table(name="rad", uniqueConstraints = {
+        @UniqueConstraint(columnNames = {"student", "zadatak_id"}),
+        @UniqueConstraint(name = "uk_rad_github_folder", columnNames = {"github_repo", "github_folder"})})
 public class Rad {
 
     @Id
@@ -26,7 +28,16 @@ public class Rad {
 
     private LocalDateTime vremePreuzimanja;
     private LocalDateTime vremePredaje;
+    @Column(length = 1000)
     private String repoPutanjaResenja;
+    @Column(length = 140)
+    private String githubRepo;
+    @Column(length = 500)
+    private String githubFolder;
+    @Column(length = 64)
+    private String githubCommit;
+    @Column(length = 64)
+    private String izvorniCommit;
     private Double poeni;
 
     @Enumerated(EnumType.STRING)

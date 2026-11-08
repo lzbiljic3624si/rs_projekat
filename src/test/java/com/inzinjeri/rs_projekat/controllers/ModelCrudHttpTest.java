@@ -29,6 +29,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @Import({SecurityConfig.class, PredmetService.class, PredajePredmetService.class, ZadatakService.class,
         RadService.class, PrijavaService.class, PristupService.class})
 class ModelCrudHttpTest {
+    @MockitoBean GitHubService github;
+    @MockitoBean RokRepository rokovi;
     @Autowired MockMvc mvc;
     @MockitoBean PredmetRepository predmeti;
     @MockitoBean PredajePredmetRepository veze;

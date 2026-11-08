@@ -1,14 +1,24 @@
 package com.inzinjeri.rs_projekat.repositories;
 
+import com.inzinjeri.rs_projekat.controllers.request.GrupaRequest;
+import com.inzinjeri.rs_projekat.exceptions.ConflictException;
 import com.inzinjeri.rs_projekat.model.*;
+import com.inzinjeri.rs_projekat.services.RasporedService;
 import jakarta.persistence.EntityManager;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.data.jpa.test.autoconfigure.DataJpaTest;
 import org.springframework.boot.jdbc.test.autoconfigure.AutoConfigureTestDatabase;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
+import java.time.Clock;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.time.LocalTime;
+import java.time.ZoneId;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -118,7 +128,8 @@ class RepositoryIntegrationTest {
         assertTrue(termini.postojiPreklapanje(ucionica.getId(), datum, LocalTime.of(11, 0), LocalTime.of(13, 0)));
         assertFalse(termini.postojiPreklapanje(ucionica.getId(), datum, LocalTime.NOON, LocalTime.of(13, 0)));
         assertFalse(termini.postojiPreklapanjeOsim(termin.getId(), ucionica.getId(), datum, LocalTime.of(11, 0), LocalTime.of(13, 0)));
-        assertTrue(grupe.existsByNaziv("G1"));
+        assertEquals(grupa.getId(), grupe.pronadjiIstoimeneZaPredmetIRok("G1", predmet.getId(),
+                rok.getId(), null).getFirst().getId());
         assertTrue(grupe.existsByTermin_Id(termin.getId()));
         assertEquals(grupa.getId(), grupe.getGrupeZaTermin(termin.getId()).getFirst().getId());
         assertEquals(grupa.getId(), grupe.findByIdZaIzmenu(grupa.getId()).orElseThrow().getId());
@@ -127,6 +138,81 @@ class RepositoryIntegrationTest {
         assertTrue(prijave.existsByStudent_IdAndGrupa_Id(student.getId(), grupa.getId()));
         assertTrue(prijave.existsByGrupa_Id(grupa.getId()));
         assertTrue(prijave.existsByStudent_Id(student.getId()));
+    }
+
+    @Test
+    void nazivGrupeMozeDaSePonoviNaDrugomPredmetuIliUDrugomRoku() {
+        Predmet java = predmet("Java", "sr");
+        Predmet python = predmet("Python", "sr");
+        Rok januar = rok("Januar", 2026);
+        Rok februar = rok("Februar", 2026);
+        Ucionica lab = ucionica("Lab");
+        Termin prvi = terminGrupe(java, januar, lab);
+        Termin drugiPredmet = terminGrupe(python, januar, lab);
+        Termin drugiRok = terminGrupe(java, februar, lab);
+        Grupa postojeca = grupa("G1", prvi);
+        Authentication auth = profesorZa(java, python);
+
+        Long druga = rasporedService().dodajGrupu(zahtevZaGrupu("G1", drugiPredmet), auth);
+        Long treca = rasporedService().dodajGrupu(zahtevZaGrupu("G1", drugiRok), auth);
+        em.flush();
+        em.clear();
+
+        assertNotEquals(postojeca.getId(), druga);
+        assertNotEquals(druga, treca);
+        assertEquals(drugiPredmet.getId(), grupe.findById(druga).orElseThrow().getTermin().getId());
+        assertEquals(drugiRok.getId(), grupe.findById(treca).orElseThrow().getTermin().getId());
+    }
+
+    @Test
+    void istiPredmetIRokNeDozvoljavajuDupliNazivNiUDrugomTerminu() {
+        Predmet predmet = predmet("Java", "sr");
+        Rok rok = rok("Januar", 2026);
+        Ucionica lab = ucionica("Lab");
+        grupa("G1", terminGrupe(predmet, rok, lab));
+        Termin drugiTermin = terminGrupe(predmet, rok, lab);
+        Authentication auth = profesorZa(predmet);
+
+        assertThrows(ConflictException.class,
+                () -> rasporedService().dodajGrupu(zahtevZaGrupu("G1", drugiTermin), auth));
+        assertTrue(grupe.getGrupeZaTermin(drugiTermin.getId()).isEmpty());
+    }
+
+    @Test
+    void promenaNazivaGrupeDozvoljavaNazivSaDrugogPredmeta() {
+        Predmet java = predmet("Java", "sr");
+        Predmet python = predmet("Python", "sr");
+        Rok rok = rok("Januar", 2026);
+        Ucionica lab = ucionica("Lab");
+        Termin termin = terminGrupe(java, rok, lab);
+        Grupa grupa = grupa("G2", termin);
+        grupa("G1", terminGrupe(python, rok, lab));
+        Authentication auth = profesorZa(java);
+
+        rasporedService().izmeniGrupu(grupa.getId(), zahtevZaGrupu("G1", termin), auth);
+        em.flush();
+        em.clear();
+
+        assertEquals("G1", grupe.findById(grupa.getId()).orElseThrow().getNaziv());
+    }
+
+    @Test
+    void premestanjeGrupeSaIstimNazivomProveravaNoviPredmetIRok() {
+        Predmet java = predmet("Java", "sr");
+        Predmet python = predmet("Python", "sr");
+        Rok rok = rok("Januar", 2026);
+        Ucionica lab = ucionica("Lab");
+        Termin prvi = terminGrupe(java, rok, lab);
+        Termin drugi = terminGrupe(python, rok, lab);
+        Grupa grupa = grupa("G1", prvi);
+        grupa("G1", drugi);
+        Authentication auth = profesorZa(java, python);
+
+        assertEquals(grupa.getId(), rasporedService()
+                .izmeniGrupu(grupa.getId(), zahtevZaGrupu("G1", prvi), auth).getId());
+        assertThrows(ConflictException.class, () -> rasporedService()
+                .izmeniGrupu(grupa.getId(), zahtevZaGrupu("G1", drugi), auth));
+        assertEquals(prvi.getId(), grupa.getTermin().getId());
     }
 
     @Test
@@ -157,6 +243,13 @@ class RepositoryIntegrationTest {
         assertEquals(rad.getId(), radovi.findByPredmetIdAndStatus(predmet.getId(), StatusRada.PREDAT).getFirst().getId());
         assertEquals(rad.getId(), radovi.findByPredmetIdAndStatus(predmet.getId(), null).getFirst().getId());
         assertTrue(radovi.findByPredmetIdAndStatus(predmet.getId(), StatusRada.OCENJEN).isEmpty());
+        assertEquals(rad.getId(), radovi.findByPredmetIdAndFilters(predmet.getId(), null, null, null, null).getFirst().getId());
+        assertEquals(rad.getId(), radovi.findByPredmetIdAndFilters(predmet.getId(), StatusRada.PREDAT,
+                grupa.getId(), termin.getId(), zadatak.getId()).getFirst().getId());
+        assertTrue(radovi.findByPredmetIdAndFilters(predmet.getId(), null, -1L, null, null).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(predmet.getId(), null, null, -1L, null).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(predmet.getId(), null, null, null, -1L).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(-1L, null, grupa.getId(), termin.getId(), zadatak.getId()).isEmpty());
         assertTrue(radovi.existsByStudent_Id(student.getId()));
         assertTrue(radovi.existsByStudent_IdAndZadatak_Id(student.getId(), zadatak.getId()));
         assertTrue(radovi.existsByZadatak_Id(zadatak.getId()));
@@ -204,6 +297,31 @@ class RepositoryIntegrationTest {
         Komentar procitan = komentari.findById(komentar.getId()).orElseThrow();
         assertEquals("p".repeat(500), procitan.getPutanjaFajla());
         assertEquals("x".repeat(2000), procitan.getKomentar());
+    }
+
+    private Termin terminGrupe(Predmet predmet, Rok rok, Ucionica lab) {
+        return termin(predmet, rok, lab, LocalDate.of(2026, 1, 20), LocalTime.of(10, 0), LocalTime.NOON);
+    }
+
+    private GrupaRequest zahtevZaGrupu(String naziv, Termin termin) {
+        GrupaRequest request = new GrupaRequest();
+        request.setNaziv(naziv);
+        request.setTerminId(termin.getId());
+        return request;
+    }
+
+    private Authentication profesorZa(Predmet... predmeti) {
+        Profesor profesor = profesor("prof@test.rs");
+        for (Predmet predmet : predmeti) {
+            predavanje(profesor, predmet);
+        }
+        return new UsernamePasswordAuthenticationToken("prof@test.rs", "",
+                List.of(new SimpleGrantedAuthority("ROLE_PROFESOR")));
+    }
+
+    private RasporedService rasporedService() {
+        return new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predavanja, radovi, prijave, zadaci,
+                Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Europe/Belgrade")));
     }
 
     private Komentar komentar(Rad rad, String putanja, int linija, String tekst) {

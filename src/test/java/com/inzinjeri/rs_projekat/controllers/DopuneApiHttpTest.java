@@ -15,6 +15,7 @@ import org.springframework.context.annotation.Import;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.mock.web.MockMultipartFile;
 
 import java.time.*;
 import java.util.List;
@@ -49,6 +50,7 @@ class DopuneApiHttpTest {
     @MockitoBean PredajePredmetRepository veze;
     @MockitoBean PrijavljenStudentRepository prijave;
     @MockitoBean Clock clock;
+    @MockitoBean GitHubService github;
     private Termin termin;
     private Grupa grupa;
     private Zadatak zadatak;
@@ -83,6 +85,7 @@ class DopuneApiHttpTest {
         when(radovi.findByIdZaIzmenu(8L)).thenReturn(Optional.of(rad));
         when(predmeti.findById(4L)).thenReturn(Optional.of(predmet));
         when(rokovi.findById(1L)).thenReturn(Optional.of(rok));
+        when(rokovi.findByIdZaIzmenu(1L)).thenReturn(Optional.of(rok));
         when(ucionice.findById(2L)).thenReturn(Optional.of(ucionica));
         when(radovi.save(any())).thenAnswer(i -> { Rad r = i.getArgument(0); r.setId(8L); return r; });
         when(termini.save(any())).thenAnswer(i -> i.getArgument(0));
@@ -93,9 +96,9 @@ class DopuneApiHttpTest {
     @Test
     void profesorVidiIOcenjeneRadoveIDetalj() throws Exception {
         rad.setStatus(StatusRada.OCENJEN); rad.setPoeni(85.0);
-        when(radovi.findByPredmetIdAndStatus(4L, StatusRada.OCENJEN)).thenReturn(List.of(rad));
+        when(radovi.findByPredmetIdAndFilters(4L, StatusRada.OCENJEN, null, null, null)).thenReturn(List.of(rad));
         // Postojeci upit dobija opcioni status; null znaci svi statusi.
-        when(radovi.findByPredmetIdAndStatus(4L, null)).thenReturn(List.of(rad));
+        when(radovi.findByPredmetIdAndFilters(4L, null, null, null, null)).thenReturn(List.of(rad));
         mvc.perform(get("/api/rad/predmet/4").with(profesor()))
                 .andExpect(status().isOk()).andExpect(jsonPath("$[0].status").value("OCENJEN"));
         mvc.perform(get("/api/rad/predmet/4?status=OCENJEN").with(profesor()))
@@ -112,6 +115,16 @@ class DopuneApiHttpTest {
         mvc.perform(get("/api/rad/predmet/4").with(student())).andExpect(status().isForbidden());
         mvc.perform(get("/api/rad/predmet/4?status=NEPOSTOJI").with(profesor())).andExpect(status().isBadRequest());
         mvc.perform(get("/api/rad/8")).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void profesorKombinujeFiltereRadovaPoGrupiTerminuIZadatku() throws Exception {
+        rad.setStatus(StatusRada.PREDAT);
+        when(radovi.findByPredmetIdAndFilters(4L, StatusRada.PREDAT, 3L, 6L, 5L)).thenReturn(List.of(rad));
+        mvc.perform(get("/api/rad/predmet/4").with(profesor())
+                        .param("status", "PREDAT").param("grupaId", "3").param("terminId", "6").param("zadatakId", "5"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$[0].id").value(8));
+        verify(radovi).findByPredmetIdAndFilters(4L, StatusRada.PREDAT, 3L, 6L, 5L);
     }
 
     @Test
@@ -224,21 +237,21 @@ class DopuneApiHttpTest {
     @ParameterizedTest
     @ValueSource(strings = {"", "{}", "{\"repoPutanjaResenja\":null}", "{\"repoPutanjaResenja\":\"\"}",
             "{\"repoPutanjaResenja\":\"   \"}"})
-    void predajaBezRucnePutanjeAutomatskiFormiraPutanju(String telo) throws Exception {
+    void predajaBezFajlovaNeFormiraLaznuPredaju(String telo) throws Exception {
         vreme("10:30:00");
         mvc.perform(post("/api/rad/8/predaj").with(student()).contentType("application/json").content(telo))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.repoPutanjaResenja")
-                        .value("student_rs_150630"))
-                .andExpect(jsonPath("$.status").value("PREDAT"));
-        assertEquals(LocalDateTime.of(2030, 6, 15, 10, 30), rad.getVremePredaje());
+                .andExpect(status().isBadRequest());
+        assertEquals(StatusRada.PREUZET, rad.getStatus()); assertNull(rad.getVremePredaje());
+        verifyNoInteractions(github);
     }
 
     @Test
-    void predajaBezPutanjeCuvaVecDodeljenoResenje() throws Exception {
+    void postojecaPutanjaNeZamenjujeSlanjeFajlova() throws Exception {
         vreme("10:30:00"); rad.setRepoPutanjaResenja("https://github.com/student/moje-resenje");
         mvc.perform(post("/api/rad/8/predaj").with(student()).contentType("application/json").content("{}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.repoPutanjaResenja")
-                        .value("https://github.com/student/moje-resenje"));
+                .andExpect(status().isBadRequest());
+        assertEquals("https://github.com/student/moje-resenje",rad.getRepoPutanjaResenja());
+        assertEquals(StatusRada.PREUZET,rad.getStatus());
     }
 
     @ParameterizedTest
@@ -247,8 +260,7 @@ class DopuneApiHttpTest {
         vreme("10:30:00"); rad.setRepoPutanjaResenja(postojeca);
         mvc.perform(post("/api/rad/8/predaj").with(student()).contentType("application/json")
                 .content("{\"repoPutanjaResenja\":\"tudja-putanja\",\"poeni\":100}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.repoPutanjaResenja").value(postojeca))
-                .andExpect(jsonPath("$.status").value("PREDAT"));
+                .andExpect(status().isBadRequest());
         assertEquals(postojeca, rad.getRepoPutanjaResenja());
         assertNull(rad.getPoeni());
     }
@@ -258,7 +270,8 @@ class DopuneApiHttpTest {
         vreme("10:30:00"); rad.setRepoPutanjaResenja("student_rs_150630");
         termin.getPredmet().setNaziv("Promenjen naziv");
         mvc.perform(post("/api/rad/8/predaj").with(student()))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.repoPutanjaResenja").value("student_rs_150630"));
+                .andExpect(status().isBadRequest());
+        assertEquals("student_rs_150630",rad.getRepoPutanjaResenja());
     }
 
     @Test
@@ -278,6 +291,7 @@ class DopuneApiHttpTest {
     @Test
     void grupaSaPrijavamaNeMenjaTermin() throws Exception {
         Termin drugi = new Termin(); drugi.setId(12L); drugi.setPredmet(termin.getPredmet());
+        drugi.setRok(termin.getRok());
         drugi.setDatum(termin.getDatum()); drugi.setVremePocetak(LocalTime.of(13, 0)); drugi.setVremeKraj(LocalTime.of(15, 0));
         when(termini.findById(12L)).thenReturn(Optional.of(drugi));
         when(prijave.existsByGrupa_Id(3L)).thenReturn(true);
@@ -289,6 +303,7 @@ class DopuneApiHttpTest {
     @Test
     void praznaGrupaMozeDaPromeniTermin() throws Exception {
         Termin drugi = new Termin(); drugi.setId(12L); drugi.setPredmet(termin.getPredmet());
+        drugi.setRok(termin.getRok());
         drugi.setDatum(termin.getDatum()); drugi.setVremePocetak(LocalTime.of(13, 0)); drugi.setVremeKraj(LocalTime.of(15, 0));
         when(termini.findById(12L)).thenReturn(Optional.of(drugi));
         mvc.perform(put("/api/raspored/grupe/3").with(profesor()).contentType("application/json")
@@ -413,10 +428,116 @@ class DopuneApiHttpTest {
     @CsvSource({"09:59:59,409", "10:00:00,200", "11:59:59,200", "12:00:00,200", "12:05:00,200", "12:05:01,409"})
     void predajaDoPetMinutaPosleKrajaTermina(String vreme, int status) throws Exception {
         vreme(vreme);
-        mvc.perform(post("/api/rad/8/predaj").with(student()).contentType("application/json")
-                .content("{\"repoPutanjaResenja\":\"https://github.com/test/resenje\"}"))
+        githubPodaci();
+        mvc.perform(multipart("/api/rad/8/predaj").file(fajlZaSlanje()).param("paths","src/A.java").with(student()))
                 .andExpect(status().is(status));
         assertEquals(status == 200 ? StatusRada.PREDAT : StatusRada.PREUZET, rad.getStatus());
+    }
+
+    @Test
+    void githubObjavaPripadaProfesoruPredmeta() throws Exception {
+        githubPodaci();
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
+        mvc.perform(multipart("/api/zadaci/objavi").file(fajlZaSlanje()).param("paths","src/A.java")
+                        .param("naziv","Z1").param("grupaId","3").with(profesor()))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.githubCommit").value("b".repeat(40)));
+        mvc.perform(multipart("/api/zadaci/objavi").file(fajlZaSlanje()).param("paths","src/A.java")
+                        .param("naziv","Z1").param("grupaId","3").with(student())).andExpect(status().isForbidden());
+        mvc.perform(multipart("/api/zadaci/objavi").file(fajlZaSlanje()).param("paths","src/A.java")
+                        .param("naziv","Z1").param("grupaId","3").with(tudjiProfesor())).andExpect(status().isForbidden());
+    }
+
+    @Test
+    void githubPredajaCuvaCommitAStudentNeBiraFolder() throws Exception {
+        vreme("10:30:00"); githubPodaci();
+        mvc.perform(multipart("/api/rad/8/predaj").file(fajlZaSlanje()).param("paths","src/A.java")
+                        .param("email","tudji@raf.rs").param("folder","tudji").with(student()))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.status").value("PREDAT"))
+                .andExpect(jsonPath("$.githubCommit").value("b".repeat(40)));
+        verify(github).publish(eq("prof/rok"),eq("RS/G1/student"),anyList(),isNull());
+        assertTrue(rad.getRepoPutanjaResenja().contains("/RS/G1/student"));
+    }
+
+    @Test
+    void githubNeuspehVracaJasnuGreskuBezLaznePredaje() throws Exception {
+        vreme("10:30:00"); githubPodaci();
+        when(github.publish(anyString(),anyString(),anyList(),any())).thenThrow(new com.inzinjeri.rs_projekat.exceptions.GitHubException(503,"GitHub token nema pristup"));
+        mvc.perform(multipart("/api/rad/8/predaj").file(fajlZaSlanje()).param("paths","A.java").with(student()))
+                .andExpect(status().isServiceUnavailable()).andExpect(jsonPath("$.detail").value("GitHub token nema pristup"));
+        assertEquals(StatusRada.PREUZET,rad.getStatus()); assertNull(rad.getVremePredaje());
+    }
+
+    @Test
+    void zapocniOporavljaIstiRadICitaSamoPocetniFolder() throws Exception {
+        vreme("11:00:00"); githubPodaci();
+        when(prijave.existsByStudent_IdAndGrupa_Id(7L,3L)).thenReturn(true);
+        when(radovi.findByStudent_IdAndZadatak_Id(7L,5L)).thenReturn(Optional.of(rad));
+        when(radovi.findByStudentIZadatakZaIzmenu(7L,5L)).thenReturn(Optional.of(rad));
+        when(github.tree("prof/rok","a".repeat(40),"RS/G1/zadatak"))
+                .thenReturn(List.of(new GitHubService.TreeEntry("A.java","blob","c".repeat(40),1)));
+        mvc.perform(post("/api/rad/5/zapocni").with(student())).andExpect(status().isOk())
+                .andExpect(jsonPath("$.rad.id").value(8)).andExpect(jsonPath("$.izvorniCommit").value("a".repeat(40)));
+        mvc.perform(get("/api/zadaci/5/stablo").with(student())).andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].path").value("A.java"));
+        verify(radovi,never()).save(any());
+    }
+
+    @Test
+    void neprijavljenStudentNemaPocetneFajlove() throws Exception {
+        githubPodaci();
+        mvc.perform(post("/api/rad/5/zapocni").with(student())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/zadaci/5/stablo").with(student())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/zadaci/5/download").with(student())).andExpect(status().isForbidden());
+        verifyNoInteractions(github); verify(radovi,never()).save(any());
+    }
+
+    @Test
+    void samoProfesorPredmetaMenjaRadnuVerziju() throws Exception {
+        githubPodaci(); rad.setStatus(StatusRada.PREDAT); rad.setGithubCommit("b".repeat(40));
+        when(github.edit("prof/rok","RS/G1/student","A.java","c".repeat(40),"novi tekst")).thenReturn("d".repeat(40));
+        String body="{\"putanja\":\"A.java\",\"prethodniSha\":\""+"c".repeat(40)+"\",\"tekst\":\"novi tekst\"}";
+        mvc.perform(put("/api/rad/8/fajl").with(profesor()).contentType("application/json").content(body))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.githubCommit").value("d".repeat(40)));
+        mvc.perform(put("/api/rad/8/fajl").with(student()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        mvc.perform(put("/api/rad/8/fajl").with(tudjiProfesor()).contentType("application/json").content(body)).andExpect(status().isForbidden());
+        assertEquals("b".repeat(40),rad.getGithubCommit());
+    }
+
+    @Test
+    void downloadFajlaCuvaBajtoveIPutanjaNeMozeVanFoldera() throws Exception {
+        githubPodaci(); rad.setStatus(StatusRada.PREDAT); rad.setGithubCommit("b".repeat(40));
+        byte[] bytes={0,1,2,-1};
+        when(github.read("prof/rok","b".repeat(40),"RS/G1/student","A.bin"))
+                .thenReturn(new GitHubService.FileContent("A.bin","c".repeat(40),"b".repeat(40),bytes,true));
+        mvc.perform(get("/api/rad/8/download-fajl").param("putanja","A.bin").with(profesor()))
+                .andExpect(status().isOk()).andExpect(content().bytes(bytes));
+        mvc.perform(get("/api/rad/8/fajl").param("putanja","../tudji/A.bin").with(profesor())).andExpect(status().isBadRequest());
+    }
+
+    private void githubPodaci() {
+        termin.getRok().setRepoPutanja("https://github.com/prof/rok");
+        zadatak.setGithubRepo("prof/rok"); zadatak.setGithubFolder("RS/G1/zadatak"); zadatak.setGithubCommit("a".repeat(40));
+        rad.setGithubRepo("prof/rok"); rad.setGithubFolder("RS/G1/student"); rad.setIzvorniCommit("a".repeat(40));
+        when(github.publish(anyString(),anyString(),anyList(),any())).thenReturn("b".repeat(40));
+        when(rokovi.repoZaGrupuZaIzmenu(3L)).thenReturn(Optional.of("https://github.com/prof/rok"));
+    }
+
+    @Test
+    void grupaSaObjavljenimZadatkomNeMozeDaPromeniTermin() throws Exception {
+        githubPodaci();
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.of(zadatak));
+        Termin drugi = new Termin(); drugi.setId(12L); drugi.setPredmet(termin.getPredmet());
+        drugi.setRok(termin.getRok()); drugi.setDatum(termin.getDatum());
+        drugi.setVremePocetak(LocalTime.of(13,0)); drugi.setVremeKraj(LocalTime.of(15,0));
+        when(termini.findById(12L)).thenReturn(Optional.of(drugi));
+        mvc.perform(put("/api/grupe/edit/3").with(profesor()).contentType("application/json")
+                        .content("{\"naziv\":\"G1\",\"terminId\":12}"))
+                .andExpect(status().isConflict());
+        assertEquals(6L,grupa.getTermin().getId()); verify(grupe,never()).save(any());
+    }
+
+    private MockMultipartFile fajlZaSlanje() {
+        return new MockMultipartFile("files","A.java","text/plain","class A {}".getBytes(java.nio.charset.StandardCharsets.UTF_8));
     }
 
     @Test

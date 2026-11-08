@@ -19,6 +19,7 @@ public final class EntityMappers {
         response.setId(rok.getId());
         response.setNaziv(rok.getNaziv());
         response.setSkolskaGodina(rok.getSkolskaGodina());
+        response.setRepoPutanja(rok.getRepoPutanja());
         return response;
     }
 
@@ -90,6 +91,7 @@ public final class EntityMappers {
         response.setNaziv(zadatak.getNaziv());
         response.setGrupa(toResponse(zadatak.getGrupa()));
         response.setRepoPutanja(zadatak.getRepoPutanja());
+        response.setGithubCommit(zadatak.getGithubCommit());
         return response;
     }
 
@@ -104,6 +106,8 @@ public final class EntityMappers {
         response.setStatus(rad.getStatus());
         response.setVremePreuzimanja(rad.getVremePreuzimanja());
         response.setVremePredaje(rad.getVremePredaje());
+        response.setGithubCommit(rad.getGithubCommit());
+        response.setIzvorniCommit(rad.getIzvorniCommit());
         return response;
     }
 

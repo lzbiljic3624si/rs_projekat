@@ -8,6 +8,7 @@ import com.inzinjeri.rs_projekat.controllers.request.*;
 import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import com.inzinjeri.rs_projekat.utils.VremeTermina;
+import com.inzinjeri.rs_projekat.utils.GitHubFiles;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
@@ -78,12 +79,14 @@ public class RasporedService {
     @Transactional
     public Rok izmeniRok(Long id, RokRequest request, Authentication auth) {
         proveriProfesora(auth);
-        Rok rok = rok(id);
+        Rok rok = rokRepository.findByIdZaIzmenu(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Rok ne postoji"));
         if ((!request.getNaziv().equals(rok.getNaziv())
                 || !request.getSkolskaGodina().equals(rok.getSkolskaGodina()))
                 && rokRepository.existsByNazivAndSkolskaGodina(request.getNaziv(), request.getSkolskaGodina())) {
             throw new ConflictException("Rok vec postoji");
         }
+        poveziRepo(rok, request.getRepoPutanja());
         rok.setNaziv(request.getNaziv());
         rok.setSkolskaGodina(request.getSkolskaGodina());
         return rokRepository.save(rok);
@@ -162,7 +165,7 @@ public class RasporedService {
         Rok rok = new Rok();
         rok.setNaziv(request.getNaziv());
         rok.setSkolskaGodina(request.getSkolskaGodina());
-
+        poveziRepo(rok, request.getRepoPutanja());
         return rokRepository.save(rok).getId();
     }
 
@@ -255,9 +258,7 @@ public class RasporedService {
 
         proveriDaPredaje(auth, termin.getPredmet().getId());
 
-        if (grupaRepository.existsByNaziv(request.getNaziv())) {
-            throw new ConflictException("Grupa već postoji");
-        }
+        proveriNazivGrupe(request.getNaziv(), termin, null);
 
         Grupa grupa = new Grupa();
         grupa.setNaziv(request.getNaziv());
@@ -289,12 +290,41 @@ public class RasporedService {
         if (!grupa.getTermin().getId().equals(termin.getId()) && prijavljenStudentRepository.existsByGrupa_Id(id)) {
             throw new ConflictException("Grupa sa prijavama ne moze da promeni termin");
         }
-        if (!request.getNaziv().equals(grupa.getNaziv()) && grupaRepository.existsByNaziv(request.getNaziv())) {
-            throw new ConflictException("Grupa vec postoji");
+        if (!grupa.getTermin().getId().equals(termin.getId()) && zadatakRepository.pronadjiPoGrupi(id)
+                .filter(zadatak -> zadatak.getGithubCommit() != null).isPresent()) {
+            throw new ConflictException("Grupa sa objavljenim GitHub zadatkom ne moze da promeni termin");
         }
+        proveriNazivGrupe(request.getNaziv(), termin, id);
         grupa.setNaziv(request.getNaziv());
         grupa.setTermin(termin);
         return grupaRepository.save(grupa);
+    }
+
+    private void poveziRepo(Rok rok, String url) {
+        if (url == null) return;
+        String canonical = "https://github.com/" + GitHubFiles.repository(url);
+        if (canonical.equals(rok.getRepoPutanja())) return;
+        if (rok.getId() != null && zadatakRepository.existsByGrupa_Termin_Rok_IdAndGithubCommitIsNotNull(rok.getId())) {
+            throw new ConflictException("Repozitorijum roka ne moze da se menja posle objave zadatka");
+        }
+        if (rokRepository.existsByRepoPutanjaIgnoreCaseAndIdNot(canonical, rok.getId() == null ? -1L : rok.getId())) {
+            throw new ConflictException("Repozitorijum vec pripada drugom roku");
+        }
+        rok.setRepoPutanja(canonical);
+    }
+
+    private void proveriNazivGrupe(String naziv, Termin termin, Long izuzetiId) {
+        if (termin.getRok() == null) {
+            throw new ConflictException("Termin nema rok");
+        }
+        // Zakljucavanje roka cuva jedinstvenost i pri upisima u razlicite termine.
+        Long rokId = termin.getRok().getId();
+        rokRepository.findByIdZaIzmenu(rokId)
+                .orElseThrow(() -> new ResourceNotFoundException("Rok ne postoji"));
+        if (!grupaRepository.pronadjiIstoimeneZaPredmetIRok(naziv,
+                termin.getPredmet().getId(), rokId, izuzetiId).isEmpty()) {
+            throw new ConflictException("Grupa sa tim nazivom vec postoji za ovaj predmet i rok");
+        }
     }
 
     private void proveriProfesora(Authentication auth) {

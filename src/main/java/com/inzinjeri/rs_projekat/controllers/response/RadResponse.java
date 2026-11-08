@@ -15,4 +15,6 @@ public class RadResponse {
     private StatusRada status;
     private LocalDateTime vremePreuzimanja;
     private LocalDateTime vremePredaje;
+    private String githubCommit;
+    private String izvorniCommit;
 }

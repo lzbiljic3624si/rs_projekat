@@ -6,7 +6,7 @@ Za preuzimanje samih resenja dodao bih endpoint koji taj skup pakuje u ZIP preko
 Zadrzao bih postojece provere u PristupService, KomentarService i RadService: student cita samo komentare i poene svojih radova, a profesor pristupa samo radovima predmeta koje predaje, ukljucujuci novi endpoint za preuzimanje.
 Plan bih proverio testovima za kombinovanje filtera, sadrzaj ZIP-a i nedostajuce fajlove, kao i zabranu pristupa tudjim komentarima, poenima i resenjima.
 
+TODO: dodaj broj mesta u ucionici
 
 TODO: dodati citanje studenta iz operativnog sistema
-
 TODO: kada se preuzme ripo i pocen rad IDE se auto otvara

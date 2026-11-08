@@ -8,4 +8,5 @@ public class ZadatakResponse {
     private String naziv;
     private GrupaResponse grupa;
     private String repoPutanja;
+    private String githubCommit;
 }

@@ -5,17 +5,22 @@ import com.inzinjeri.rs_projekat.exceptions.ConflictException;
 import com.inzinjeri.rs_projekat.exceptions.ForbiddenException;
 import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.controllers.request.OcenaRadaRequest;
+import com.inzinjeri.rs_projekat.controllers.request.IzmenaFajlaRequest;
+import com.inzinjeri.rs_projekat.controllers.response.RadResponse;
 import com.inzinjeri.rs_projekat.model.Rad;
 import com.inzinjeri.rs_projekat.model.StatusRada;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.model.Zadatak;
 import com.inzinjeri.rs_projekat.utils.VremeTermina;
 import com.inzinjeri.rs_projekat.utils.ParseUtils;
+import com.inzinjeri.rs_projekat.utils.GitHubFiles;
+import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import com.inzinjeri.rs_projekat.repositories.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.Clock;
@@ -31,11 +36,15 @@ public class RadService {
     private final PrijavljenStudentRepository prijavljenStudentRepository;
     private final PredajePredmetRepository predajePredmetRepository;
     private final Clock clock;
+    private final GitHubService github;
+
+    public record PocetakRada(RadResponse rad, String izvorniCommit, String nazivFoldera) {}
 
     @Transactional(readOnly = true)
-    public List<Rad> zaPredmet(Long predmetId, StatusRada status, Authentication auth) {
+    public List<Rad> zaPredmet(Long predmetId, StatusRada status, Long grupaId, Long terminId,
+                              Long zadatakId, Authentication auth) {
         proveriDaPredaje(auth, predmetId);
-        return radRepository.findByPredmetIdAndStatus(predmetId, status);
+        return radRepository.findByPredmetIdAndFilters(predmetId, status, grupaId, terminId, zadatakId);
     }
 
     @Transactional(readOnly = true)
@@ -138,6 +147,11 @@ public class RadService {
 
     @Transactional
     public Rad predaj(Long radId, Authentication auth){
+        return predaj(radId, List.of(), List.of(), auth);
+    }
+
+    @Transactional
+    public Rad predaj(Long radId, List<MultipartFile> files, List<String> paths, Authentication auth){
         Rad rad = radZaIzmenu(radId);
         if(rad.getStudent() == null
                 || !auth.getName().equals(rad.getStudent().getEmail())){
@@ -151,9 +165,13 @@ public class RadService {
         VremeTermina.proveriPredaju(rad.getZadatak() == null || rad.getZadatak().getGrupa() == null
                 ? null : rad.getZadatak().getGrupa().getTermin(), sada);
 
-        if (rad.getRepoPutanjaResenja() == null || rad.getRepoPutanjaResenja().isBlank()) {
-            rad.setRepoPutanjaResenja(automatskaPutanjaResenja(rad.getStudent(), rad.getZadatak()));
+        var upload = GitHubFiles.upload(files, paths);
+        if (rad.getGithubRepo() == null || rad.getGithubFolder() == null || rad.getIzvorniCommit() == null) {
+            throw new ConflictException("Rad nema GitHub izvor; profesor prvo treba da objavi fajlove zadatka");
         }
+        String commit = github.publish(rad.getGithubRepo(), rad.getGithubFolder(), upload, null);
+        rad.setGithubCommit(commit);
+        rad.setRepoPutanjaResenja(GitHubFiles.folderUrl(rad.getGithubRepo(), commit, rad.getGithubFolder()));
         rad.setVremePredaje(sada);
         rad.setStatus(StatusRada.PREDAT);
 
@@ -162,6 +180,18 @@ public class RadService {
 
     @Transactional
     public Long preuzmi(Long zadatakId, Authentication auth){
+        return preuzmiInterno(zadatakId, auth, false).getId();
+    }
+
+    @Transactional
+    public PocetakRada zapocni(Long zadatakId, Authentication auth) {
+        Rad rad = preuzmiInterno(zadatakId, auth, true);
+        String folder = rad.getGithubFolder();
+        return new PocetakRada(EntityMappers.toResponse(rad), rad.getIzvorniCommit(),
+                folder.substring(folder.lastIndexOf('/') + 1));
+    }
+
+    private Rad preuzmiInterno(Long zadatakId, Authentication auth, boolean oporavak){
         Student student = studentRepository.pronadjiPoEmailu(auth.getName())
                 .orElseThrow(() -> new ForbiddenException("Prijavljeni korisnik nije student"));
 
@@ -182,8 +212,23 @@ public class RadService {
             throw new ForbiddenException("Grupa zadatka nije studentova");
         }
 
-        if(radRepository.existsByStudent_IdAndZadatak_Id(student.getId(),zadatakId)){
+        Rad postojeci = radRepository.findByStudentIZadatakZaIzmenu(student.getId(), zadatakId).orElse(null);
+        if (oporavak && postojeci != null) {
+            if (postojeci.getStatus() != StatusRada.PREUZET) {
+                throw new ConflictException("Rad je vec predat i ne moze ponovo da se zapocne");
+            }
+            VremeTermina.proveriPredaju(zadatak.getGrupa().getTermin(), LocalDateTime.now(clock));
+            if (postojeci.getIzvorniCommit() == null || postojeci.getGithubFolder() == null) {
+                throw new ConflictException("Postojeci rad nema potvrdjen GitHub izvor");
+            }
+            return postojeci;
+        }
+        if(postojeci != null || radRepository.existsByStudent_IdAndZadatak_Id(student.getId(),zadatakId)){
             throw new ConflictException("Zadatak je vec preuzet");
+        }
+
+        if (oporavak && (zadatak.getGithubRepo() == null || zadatak.getGithubFolder() == null || zadatak.getGithubCommit() == null)) {
+            throw new ConflictException("Profesor prvo treba da objavi GitHub fajlove zadatka");
         }
 
         LocalDateTime sada = LocalDateTime.now(clock);
@@ -192,11 +237,81 @@ public class RadService {
         Rad rad = new Rad();
         rad.setStudent(student);
         rad.setZadatak(zadatak);
-        rad.setRepoPutanjaResenja(automatskaPutanjaResenja(student, zadatak));
+        if (zadatak.getGithubCommit() != null) {
+            pripremiGitHubRad(rad, student, zadatak);
+        } else {
+            rad.setRepoPutanjaResenja(automatskaPutanjaResenja(student, zadatak));
+        }
         rad.setVremePreuzimanja(sada);
         rad.setStatus(StatusRada.PREUZET);
 
-        return radRepository.save(rad).getId();
+        return radRepository.save(rad);
+    }
+
+    private void pripremiGitHubRad(Rad rad, Student student, Zadatak zadatak) {
+        if (zadatak.getGithubRepo() == null || zadatak.getGithubFolder() == null
+                || !zadatak.getGithubFolder().endsWith("/zadatak")) {
+            throw new ConflictException("Zadatak nema ispravnu GitHub putanju");
+        }
+        String prefix = zadatak.getGithubFolder().substring(0, zadatak.getGithubFolder().lastIndexOf('/') + 1);
+        String email = student.getEmail();
+        String ime = GitHubFiles.segment(email.substring(0, email.indexOf('@')), "student-" + student.getId());
+        String base = prefix + ime;
+        String folder = base;
+        int suffix = 1;
+        while (folder.equalsIgnoreCase(prefix + "zadatak")
+                || !radRepository.pronadjiFolderZaIzmenu(zadatak.getGithubRepo(), folder).isEmpty()) {
+            folder = base + "-" + student.getId() + (suffix == 1 ? "" : "-" + suffix);
+            suffix++;
+        }
+        rad.setGithubRepo(zadatak.getGithubRepo());
+        rad.setGithubFolder(folder);
+        rad.setIzvorniCommit(zadatak.getGithubCommit());
+    }
+
+    @Transactional(readOnly = true)
+    public List<GitHubService.TreeEntry> stablo(Long id, boolean radna, Authentication auth) {
+        Rad rad = byId(id, auth);
+        String commit = commitZaCitanje(rad, radna);
+        return github.tree(rad.getGithubRepo(), commit, rad.getGithubFolder());
+    }
+
+    @Transactional(readOnly = true)
+    public GitHubService.FileContent fajl(Long id, String path, boolean radna, Authentication auth) {
+        Rad rad = byId(id, auth);
+        String commit = commitZaCitanje(rad, radna);
+        return github.read(rad.getGithubRepo(), commit, rad.getGithubFolder(), GitHubFiles.path(path));
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] arhiva(Long id, boolean radna, Authentication auth) {
+        Rad rad = byId(id, auth);
+        String commit = commitZaCitanje(rad, radna);
+        return github.archive(rad.getGithubRepo(), commit, rad.getGithubFolder());
+    }
+
+    @Transactional
+    public String izmeniFajl(Long id, IzmenaFajlaRequest request, Authentication auth) {
+        if (auth.getAuthorities().stream().noneMatch(a -> "ROLE_PROFESOR".equals(a.getAuthority()))) {
+            throw new ForbiddenException("Samo profesor moze da menja fajlove rada");
+        }
+        Rad rad = radZaIzmenu(id);
+        proveriPristupRadu(rad, auth);
+        proveriGitHubPredaju(rad);
+        return github.edit(rad.getGithubRepo(), rad.getGithubFolder(), GitHubFiles.path(request.getPutanja()),
+                request.getPrethodniSha(), request.getTekst());
+    }
+
+    private String commitZaCitanje(Rad rad, boolean radna) {
+        proveriGitHubPredaju(rad);
+        return radna ? github.head(rad.getGithubRepo()) : rad.getGithubCommit();
+    }
+
+    private void proveriGitHubPredaju(Rad rad) {
+        if (rad.getStatus() == StatusRada.PREUZET || rad.getGithubRepo() == null
+                || rad.getGithubFolder() == null || rad.getGithubCommit() == null) {
+            throw new ConflictException("Rad nema potvrdjenu GitHub predaju");
+        }
     }
 
     private String automatskaPutanjaResenja(Student student, Zadatak zadatak) {
