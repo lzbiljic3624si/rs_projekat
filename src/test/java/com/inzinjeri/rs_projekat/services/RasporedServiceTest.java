@@ -29,8 +29,9 @@ class RasporedServiceTest {
     private final GrupaRepository grupe = mock(GrupaRepository.class);
     private final PredmetRepository predmeti = mock(PredmetRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
+    private final ZadatakRepository zadaci = mock(ZadatakRepository.class);
     private final RasporedService service = new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predaje,
-            mock(RadRepository.class), mock(PrijavljenStudentRepository.class), mock(ZadatakRepository.class),
+            mock(RadRepository.class), mock(PrijavljenStudentRepository.class), zadaci,
             Clock.systemDefaultZone());
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
@@ -141,6 +142,47 @@ class RasporedServiceTest {
         when(rokovi.existsByRepoPutanjaIgnoreCaseAndIdNot("https://github.com/profesor/ispit", -1L)).thenReturn(true);
         assertThrows(ConflictException.class, () -> service.dodajRok(request, profesor));
         verify(rokovi, never()).save(any());
+    }
+
+    @Test
+    void objavljenZadatakSprecavaPromenuRepoaBezDelimicneIzmeneRoka() {
+        Rok rok = rok();
+        rok.setNaziv("Junski");
+        rok.setSkolskaGodina(2026);
+        rok.setRepoPutanja("https://github.com/profesor/ispit-jun");
+        when(rokovi.findByIdZaIzmenu(6L)).thenReturn(Optional.of(rok));
+        when(zadaci.existsByGrupa_Termin_Rok_IdAndGithubCommitIsNotNull(6L)).thenReturn(true);
+        RokRequest request = new RokRequest();
+        request.setNaziv("Julski");
+        request.setSkolskaGodina(2027);
+        request.setRepoPutanja("https://github.com/profesor/drugi-repo");
+
+        assertThrows(ConflictException.class, () -> service.izmeniRok(6L, request, profesor));
+
+        assertEquals("Junski", rok.getNaziv());
+        assertEquals(2026, rok.getSkolskaGodina());
+        assertEquals("https://github.com/profesor/ispit-jun", rok.getRepoPutanja());
+        verify(rokovi, never()).save(any());
+    }
+
+    @Test
+    void izmenaRokaBezRepoAdreseCuvaPostojecePovezivanje() {
+        Rok rok = rok();
+        rok.setNaziv("Junski");
+        rok.setSkolskaGodina(2026);
+        rok.setRepoPutanja("https://github.com/profesor/ispit-jun");
+        when(rokovi.findByIdZaIzmenu(6L)).thenReturn(Optional.of(rok));
+        when(rokovi.save(any())).thenAnswer(call -> call.getArgument(0));
+        RokRequest request = new RokRequest();
+        request.setNaziv("Julski");
+        request.setSkolskaGodina(2027);
+
+        Rok odgovor = service.izmeniRok(6L, request, profesor);
+
+        assertEquals("Julski", odgovor.getNaziv());
+        assertEquals(2027, odgovor.getSkolskaGodina());
+        assertEquals("https://github.com/profesor/ispit-jun", odgovor.getRepoPutanja());
+        assertEquals("https://github.com/profesor/ispit-jun", rok.getRepoPutanja());
     }
 
     @Test

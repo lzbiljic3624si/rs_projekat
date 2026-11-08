@@ -6,12 +6,16 @@ import com.inzinjeri.rs_projekat.model.*;
 import com.inzinjeri.rs_projekat.repositories.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 
 import java.time.*;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -105,6 +109,101 @@ class GitHubWorkflowServiceTest {
         assertEquals(8L,odgovor.rad().getId()); assertEquals(source,odgovor.izvorniCommit());
         assertEquals(LocalDateTime.of(2030,6,15,10,15),rad.getVremePreuzimanja());
         verify(radovi,never()).save(any()); verifyNoInteractions(github);
+    }
+
+    @Test
+    void ponovniPocetakPosleRokaZaPredajuNeMenjaRad() {
+        when(radovi.findByStudentIZadatakZaIzmenu(7L,5L)).thenReturn(Optional.of(rad));
+        Clock posleRoka = Clock.fixed(Instant.parse("2030-06-15T10:05:01Z"), ZoneId.of("Europe/Belgrade"));
+        RadService service = new RadService(radovi, studenti, zadaci, prijave, predaje, posleRoka, github);
+
+        assertThrows(ConflictException.class, () -> service.zapocni(5L, studentAuth));
+
+        assertEquals(StatusRada.PREUZET, rad.getStatus());
+        assertEquals(LocalDateTime.of(2030,6,15,10,15), rad.getVremePreuzimanja());
+        assertEquals(source, rad.getIzvorniCommit());
+        assertNull(rad.getGithubCommit());
+        assertNull(rad.getVremePredaje());
+        verify(radovi, never()).save(any());
+        verifyNoInteractions(github);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusRada.class, names = {"PREDAT", "OCENJEN"})
+    void ponovniPocetakPredatogIliOcenjenogRadaNeMenjaPredaju(StatusRada status) {
+        rad.setStatus(status);
+        rad.setGithubCommit(submitted);
+        rad.setVremePredaje(LocalDateTime.of(2030,6,15,10,20));
+        when(radovi.findByStudentIZadatakZaIzmenu(7L,5L)).thenReturn(Optional.of(rad));
+
+        assertThrows(ConflictException.class, () -> radService.zapocni(5L, studentAuth));
+
+        assertEquals(status, rad.getStatus());
+        assertEquals(LocalDateTime.of(2030,6,15,10,15), rad.getVremePreuzimanja());
+        assertEquals(LocalDateTime.of(2030,6,15,10,20), rad.getVremePredaje());
+        assertEquals(source, rad.getIzvorniCommit());
+        assertEquals(submitted, rad.getGithubCommit());
+        verify(radovi, never()).save(any());
+        verifyNoInteractions(github);
+    }
+
+    @Test
+    void prviPocetakCuvaIzvorniCommitIFolderObjavljenogZadatka() {
+        grupa.setNaziv("Preimenovana grupa");
+        grupa.getTermin().getPredmet().setNaziv("Preimenovan predmet");
+        when(radovi.findByStudentIZadatakZaIzmenu(7L,5L)).thenReturn(Optional.empty());
+
+        var odgovor = radService.zapocni(5L, studentAuth);
+
+        assertEquals(8L, odgovor.rad().getId());
+        assertEquals(StatusRada.PREUZET, odgovor.rad().getStatus());
+        assertEquals(source, odgovor.izvorniCommit());
+        assertEquals(source, odgovor.rad().getIzvorniCommit());
+        assertEquals("pperic2126si", odgovor.nazivFoldera());
+        assertEquals(LocalDateTime.of(2030,6,15,10,30), odgovor.rad().getVremePreuzimanja());
+        var sacuvan = org.mockito.ArgumentCaptor.forClass(Rad.class);
+        verify(radovi).save(sacuvan.capture());
+        assertEquals("prof/novembar", sacuvan.getValue().getGithubRepo());
+        assertEquals("Programiranje/Grupa1/pperic2126si", sacuvan.getValue().getGithubFolder());
+        zadatak.setGithubCommit("f".repeat(40));
+        assertEquals(source, sacuvan.getValue().getIzvorniCommit());
+        assertNull(sacuvan.getValue().getGithubCommit());
+        verifyNoInteractions(github);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void stabloFajlIArhivaBirajuPredatiSnapshotIliRadnuVerziju(boolean radna) {
+        rad.setStatus(StatusRada.PREDAT);
+        rad.setGithubCommit(submitted);
+        String working = "d".repeat(40);
+        when(github.head("prof/novembar")).thenReturn(working);
+        when(github.tree("prof/novembar", submitted, "Programiranje/Grupa1/pperic2126si"))
+                .thenReturn(List.of(new GitHubService.TreeEntry("predato.java", "blob", "c".repeat(40), 7)));
+        when(github.tree("prof/novembar", working, "Programiranje/Grupa1/pperic2126si"))
+                .thenReturn(List.of(new GitHubService.TreeEntry("radno.java", "blob", "e".repeat(40), 5)));
+        when(github.read("prof/novembar", submitted, "Programiranje/Grupa1/pperic2126si", "A.java"))
+                .thenReturn(new GitHubService.FileContent("A.java", "c".repeat(40), submitted,
+                        "predato".getBytes(StandardCharsets.UTF_8), false));
+        when(github.read("prof/novembar", working, "Programiranje/Grupa1/pperic2126si", "A.java"))
+                .thenReturn(new GitHubService.FileContent("A.java", "e".repeat(40), working,
+                        "radno".getBytes(StandardCharsets.UTF_8), false));
+        when(github.archive("prof/novembar", submitted, "Programiranje/Grupa1/pperic2126si"))
+                .thenReturn(new byte[]{1, 2, 3});
+        when(github.archive("prof/novembar", working, "Programiranje/Grupa1/pperic2126si"))
+                .thenReturn(new byte[]{4, 5, 6});
+
+        assertEquals(radna ? "radno.java" : "predato.java",
+                radService.stablo(8L, radna, profesorAuth).getFirst().path());
+        var content = radService.fajl(8L, "A.java", radna, profesorAuth);
+        assertArrayEquals((radna ? "radno" : "predato").getBytes(StandardCharsets.UTF_8), content.content());
+        assertEquals(radna ? working : submitted, content.commit());
+        assertArrayEquals(radna ? new byte[]{4, 5, 6} : new byte[]{1, 2, 3},
+                radService.arhiva(8L, radna, profesorAuth));
+        assertEquals(submitted, rad.getGithubCommit());
+        assertEquals(source, rad.getIzvorniCommit());
+        verify(github, radna ? times(3) : never()).head(anyString());
+        verify(radovi, never()).save(any());
     }
 
     @Test
