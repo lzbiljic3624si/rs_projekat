@@ -19,6 +19,11 @@ import java.util.Map;
 // Prevodi poslovne i standardne MVC greske u HTTP odgovore, bez vezivanja servisa za web sloj.
 @RestControllerAdvice
 public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
+    @ExceptionHandler(GitHubException.class)
+    public ProblemDetail handleGitHub(GitHubException e) {
+        return ProblemDetail.forStatusAndDetail(HttpStatusCode.valueOf(e.getStatus()), e.getMessage());
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ProblemDetail handleNotFound(ResourceNotFoundException e) {
         return ProblemDetail.forStatusAndDetail(HttpStatus.NOT_FOUND, e.getMessage());

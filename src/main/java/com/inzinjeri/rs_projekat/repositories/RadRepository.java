@@ -24,8 +24,20 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
 
     // Da li ovaj student već ima rad za ovaj zadatak?
     boolean existsByStudent_IdAndZadatak_Id(Long studentId, Long zadatakId);
+    Optional<Rad> findByStudent_IdAndZadatak_Id(Long studentId, Long zadatakId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Rad r where r.student.id = :studentId and r.zadatak.id = :zadatakId")
+    Optional<Rad> findByStudentIZadatakZaIzmenu(@Param("studentId") Long studentId, @Param("zadatakId") Long zadatakId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from Rad r where lower(r.githubRepo) = lower(:repo) and lower(r.githubFolder) = lower(:folder)")
+    List<Rad> pronadjiFolderZaIzmenu(@Param("repo") String repo, @Param("folder") String folder);
 
     boolean existsByZadatak_Id(Long zadatakId);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    Optional<Rad> findFirstByZadatak_Id(Long zadatakId);
 
     boolean existsByStudent_IdAndZadatak_Grupa_Id(Long studentId, Long grupaId);
 
@@ -36,7 +48,6 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
     @Query("select r from Rad r where r.zadatak.grupa.termin.predmet.id = :predmetId and (:status is null or r.status = :status)")
     List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") StatusRada status);
 
-    // Pretraga radova po predmetu uz mogucnost kombinovanja dodatnih filtera.
     @Query("""
             select r
             from Rad r
@@ -49,11 +60,9 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
               and (:terminId is null or t.id = :terminId)
               and (:zadatakId is null or z.id = :zadatakId)
             """)
-    List<Rad> findByPredmetIdAndFilters(
-            @Param("predmetId") Long predmetId,
-            @Param("status") StatusRada status,
-            @Param("grupaId") Long grupaId,
-            @Param("terminId") Long terminId,
-            @Param("zadatakId") Long zadatakId
-    );
+    List<Rad> findByPredmetIdAndFilters(@Param("predmetId") Long predmetId,
+                                      @Param("status") StatusRada status,
+                                      @Param("grupaId") Long grupaId,
+                                      @Param("terminId") Long terminId,
+                                      @Param("zadatakId") Long zadatakId);
 }

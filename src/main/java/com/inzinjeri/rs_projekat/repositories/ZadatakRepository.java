@@ -26,4 +26,10 @@ public interface ZadatakRepository extends JpaRepository<Zadatak, Long> {
     Optional<Zadatak> pronadjiPoGrupi(@Param("grupaId") Long grupaId);
 
     boolean existsByGrupa_Id(Long grupaId);
+    boolean existsByGrupa_Termin_Rok_IdAndGithubCommitIsNotNull(Long rokId);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select z from Zadatak z where lower(z.githubRepo) = lower(:repo) "
+            + "and lower(z.githubFolder) = lower(:folder) and z.id <> :izuzetiId")
+    List<Zadatak> pronadjiFolderZaIzmenu(@Param("repo") String repo, @Param("folder") String folder,
+                                      @Param("izuzetiId") Long izuzetiId);
 }

@@ -32,7 +32,7 @@ class ZadatakServiceTest {
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final PredajePredmetRepository predaje = mock(PredajePredmetRepository.class);
     private final ZadatakService service = new ZadatakService(zadaci, grupe, studenti, prijave, predaje,
-            mock(RadRepository.class), Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")));
+            mock(RadRepository.class), Clock.fixed(Instant.parse("2030-06-15T08:30:00Z"), ZoneId.of("Europe/Belgrade")), mock(GitHubService.class), mock(RokRepository.class));
     private final Authentication student = auth("student@test.rs", "ROLE_STUDENT");
     private final Authentication profesor = auth("profesor@test.rs", "ROLE_PROFESOR");
 

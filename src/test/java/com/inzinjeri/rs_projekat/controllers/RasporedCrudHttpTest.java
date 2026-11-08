@@ -79,6 +79,7 @@ class RasporedCrudHttpTest {
         termin.setVremePocetak(LocalTime.of(10, 0)); termin.setVremeKraj(LocalTime.of(12, 0));
         grupa = new Grupa(); grupa.setId(3L); grupa.setNaziv("G1"); grupa.setTermin(termin);
         when(rokovi.findById(6L)).thenReturn(Optional.of(rok));
+        when(rokovi.findByIdZaIzmenu(6L)).thenReturn(Optional.of(rok));
         when(ucionice.findById(5L)).thenReturn(Optional.of(ucionica));
         when(termini.findById(7L)).thenReturn(Optional.of(termin));
         when(grupe.findById(3L)).thenReturn(Optional.of(grupa));

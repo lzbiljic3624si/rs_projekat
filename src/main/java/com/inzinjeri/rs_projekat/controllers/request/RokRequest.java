@@ -10,4 +10,5 @@ public class RokRequest {
     private String naziv;
     @NotNull
     private Integer skolskaGodina;
+    private String repoPutanja;
 }

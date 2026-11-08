@@ -96,10 +96,12 @@ class RasporedServiceTest {
     void profesorDodajeGrupuSvomTerminu() {
         Termin termin = new Termin();
         termin.setPredmet(predmet());
+        termin.setRok(rok());
         GrupaRequest request = new GrupaRequest();
         request.setNaziv("G1");
         request.setTerminId(7L);
         when(termini.findById(7L)).thenReturn(Optional.of(termin));
+        when(rokovi.findByIdZaIzmenu(6L)).thenReturn(Optional.of(rok()));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
         when(grupe.save(any())).thenAnswer(call -> {
             Grupa grupa = call.getArgument(0);
@@ -117,6 +119,27 @@ class RasporedServiceTest {
         request.setNaziv("Junski");
         request.setSkolskaGodina(2026);
         assertThrows(ForbiddenException.class, () -> service.dodajRok(request, student));
+        verify(rokovi, never()).save(any());
+    }
+
+    @Test
+    void rokCuvaKanonickuAdresuGitHubRepozitorijuma() {
+        RokRequest request = new RokRequest(); request.setNaziv("Junski"); request.setSkolskaGodina(2026);
+        request.setRepoPutanja("https://github.com/Profesor/Ispit-Jun.git");
+        when(rokovi.save(any())).thenAnswer(call -> { Rok r = call.getArgument(0); r.setId(6L); return r; });
+
+        assertEquals(6L, service.dodajRok(request, profesor));
+        verify(rokovi).save(argThat(r -> "https://github.com/profesor/ispit-jun".equals(r.getRepoPutanja())));
+    }
+
+    @Test
+    void rokNePrihvataProizvoljanUrlNiRepoDrugogRoka() {
+        RokRequest request = new RokRequest(); request.setNaziv("Junski"); request.setSkolskaGodina(2026);
+        request.setRepoPutanja("https://example.com/profesor/ispit");
+        assertThrows(BadRequestException.class, () -> service.dodajRok(request, profesor));
+        request.setRepoPutanja("https://github.com/profesor/ispit");
+        when(rokovi.existsByRepoPutanjaIgnoreCaseAndIdNot("https://github.com/profesor/ispit", -1L)).thenReturn(true);
+        assertThrows(ConflictException.class, () -> service.dodajRok(request, profesor));
         verify(rokovi, never()).save(any());
     }
 
@@ -148,11 +171,12 @@ class RasporedServiceTest {
         UcionicaRequest ucionica = new UcionicaRequest(); ucionica.setNaziv("Lab 1");
         when(ucionice.pronadjiPoNazivu("Lab 1")).thenReturn(Optional.of(ucionica()));
         assertThrows(ConflictException.class, () -> service.dodajUcionicu(ucionica, profesor));
-        Termin termin = new Termin(); termin.setPredmet(predmet());
+        Termin termin = new Termin(); termin.setPredmet(predmet()); termin.setRok(rok());
         GrupaRequest grupa = new GrupaRequest(); grupa.setNaziv("G1"); grupa.setTerminId(7L);
         when(termini.findById(7L)).thenReturn(Optional.of(termin));
         when(predaje.getPredmetiZaPredavaca(profesor.getName())).thenReturn(List.of(veza()));
-        when(grupe.existsByNaziv("G1")).thenReturn(true);
+        when(rokovi.findByIdZaIzmenu(6L)).thenReturn(Optional.of(rok()));
+        when(grupe.pronadjiIstoimeneZaPredmetIRok("G1", 4L, 6L, null)).thenReturn(List.of(new Grupa()));
         assertThrows(ConflictException.class, () -> service.dodajGrupu(grupa, profesor));
         verify(rokovi, never()).save(any());
         verify(ucionice, never()).save(any());

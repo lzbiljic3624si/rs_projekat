@@ -7,4 +7,5 @@ public class RokResponse {
     private Long id;
     private String naziv;
     private Integer skolskaGodina;
+    private String repoPutanja;
 }

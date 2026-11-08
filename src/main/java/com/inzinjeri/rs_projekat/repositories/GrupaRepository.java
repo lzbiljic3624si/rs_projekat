@@ -16,7 +16,14 @@ public interface GrupaRepository extends JpaRepository<Grupa, Long> {
     @Query("select g from Grupa g where g.id = :id")
     Optional<Grupa> findByIdZaIzmenu(@Param("id") Long id);
 
-    boolean existsByNaziv(String naziv);
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select g from Grupa g where g.naziv = :naziv "
+            + "and g.termin.predmet.id = :predmetId and g.termin.rok.id = :rokId "
+            + "and (:izuzetiId is null or g.id <> :izuzetiId)")
+    List<Grupa> pronadjiIstoimeneZaPredmetIRok(@Param("naziv") String naziv,
+                                             @Param("predmetId") Long predmetId,
+                                             @Param("rokId") Long rokId,
+                                             @Param("izuzetiId") Long izuzetiId);
 
     boolean existsByTermin_Id(Long terminId);
 
