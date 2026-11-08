@@ -58,39 +58,27 @@ class ControllerHttpTest {
         verifyNoInteractions(predmeti);
     }
 
-    @ParameterizedTest
-    @ValueSource(strings = {"", ",\"uslov\":null", ",\"uslov\":\"\"", ",\"uslov\":0", ",\"uslov\":\"0\""})
-    void predmetMozeDaSeKreiraBezUslova(String uslovPolje) throws Exception {
-        Predmet predmet = new Predmet();
-        predmet.setId(1L);
-        when(predmeti.save(any())).thenReturn(predmet);
-
-        mvc.perform(post("/api/predmet/add").contentType("application/json")
-                        .content("{\"naziv\":\"Uvod u programiranje\",\"jezik\":\"C\"" + uslovPolje + "}"))
-                .andExpect(status().isCreated());
-    }
-
     @Test
     void predmetDodavanjeICitanje() throws Exception {
         Predmet predmet = new Predmet();
         predmet.setId(1L);
         predmet.setNaziv("Razvoj softvera");
         predmet.setJezik("Java");
-        predmet.setUslov("Nema");
         when(predmeti.save(any())).thenReturn(predmet);
         when(predmeti.findAll()).thenReturn(List.of(predmet));
         when(predmeti.findById(1L)).thenReturn(predmet);
 
         mvc.perform(post("/api/predmet/add").contentType("application/json").content("""
-                {"naziv":"Razvoj softvera","jezik":"Java","uslov":"Nema"}
+                {"naziv":"Razvoj softvera","jezik":"Java"}
                 """)).andExpect(status().isCreated()).andExpect(content().string("1"));
         verify(predmeti).save(argThat(p -> "Razvoj softvera".equals(p.getNaziv())
-                && "Java".equals(p.getJezik()) && "Nema".equals(p.getUslov())));
+                && "Java".equals(p.getJezik())));
         mvc.perform(get("/api/predmet/all")).andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].naziv").value("Razvoj softvera"));
+                .andExpect(jsonPath("$[0].naziv").value("Razvoj softvera"))
+                .andExpect(jsonPath("$[0].length()").value(3));
         mvc.perform(get("/api/predmet/1")).andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(1)).andExpect(jsonPath("$.jezik").value("Java"))
-                .andExpect(jsonPath("$.uslov").value("Nema"));
+                .andExpect(jsonPath("$.length()").value(3));
     }
 
     @Test

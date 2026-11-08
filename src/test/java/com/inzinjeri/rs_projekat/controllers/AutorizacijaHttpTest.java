@@ -111,7 +111,7 @@ class AutorizacijaHttpTest {
         return Stream.of(
                 new Endpoint("/api/predmet/all", null, 200, 200, 200, 200),
                 new Endpoint("/api/predmet/4", null, 200, 200, 200, 200),
-                new Endpoint("/api/predmet/add", "{\"naziv\":\"RS\",\"jezik\":\"Java\",\"uslov\":\"OOP\"}", 403, 201, 403, 201),
+                new Endpoint("/api/predmet/add", "{\"naziv\":\"RS\",\"jezik\":\"Java\"}", 403, 201, 403, 201),
                 new Endpoint("/api/prijave/grupa/3", "", 201, 403, 201, 403),
                 new Endpoint("/api/prijave/moje", null, 200, 403, 200, 403),
                 new Endpoint("/api/prijave/grupa/3", null, 403, 200, 403, 403),

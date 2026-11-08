@@ -28,6 +28,7 @@ class RepositoryIntegrationTest {
     @Autowired PrijavljenStudentRepository prijave;
     @Autowired ZadatakRepository zadaci;
     @Autowired RadRepository radovi;
+    @Autowired KomentarRepository komentari;
 
     @Test
     void naloziSePronalazePoEmailuIPripadajucimOsobama() {
@@ -161,6 +162,55 @@ class RepositoryIntegrationTest {
         assertTrue(radovi.existsByZadatak_Id(zadatak.getId()));
         assertTrue(radovi.existsByStudent_IdAndZadatak_Grupa_Id(student.getId(), grupa.getId()));
         assertTrue(radovi.existsByZadatak_Grupa_Id(grupa.getId()));
+    }
+
+    @Test
+    void komentariSeCuvajuFiltrirajuPoRaduISortirajuPoFajluILiniji() {
+        Rad rad = new Rad(); rad.setStatus(StatusRada.PREDAT); em.persist(rad);
+        Rad drugiRad = new Rad(); drugiRad.setStatus(StatusRada.PREDAT); em.persist(drugiRad);
+        Komentar poslednji = komentar(rad, "src/Z.java", 1, "Greska u drugom fajlu");
+        Komentar drugi = komentar(rad, "src/A.java", 10, "Greska u desetoj liniji");
+        Komentar prvi = komentar(rad, "src/A.java", 2, "Greska u drugoj liniji");
+        komentar(drugiRad, "src/A.java", 1, "Komentar drugog rada");
+        em.flush();
+        em.clear();
+
+        var lista = komentari.findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(rad.getId());
+        assertEquals(java.util.List.of(prvi.getId(), drugi.getId(), poslednji.getId()),
+                lista.stream().map(Komentar::getId).toList());
+        Komentar procitan = komentari.findById(prvi.getId()).orElseThrow();
+        assertEquals(rad.getId(), procitan.getRad().getId());
+        assertEquals("Greska u drugoj liniji", procitan.getKomentar());
+        assertEquals("src/A.java", procitan.getPutanjaFajla());
+        assertEquals(2, procitan.getBrojLinije());
+        assertEquals(1, komentari.findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(drugiRad.getId()).size());
+        assertTrue(komentari.findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(-1L).isEmpty());
+
+        komentari.delete(procitan);
+        em.flush();
+        em.clear();
+        assertTrue(komentari.findById(prvi.getId()).isEmpty());
+        assertEquals(2, komentari.findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(rad.getId()).size());
+        assertTrue(radovi.findById(rad.getId()).isPresent());
+    }
+
+    @Test
+    void bazaPrihvataMaksimalneDuzineKomentaraIPutanje() {
+        Rad rad = new Rad(); rad.setStatus(StatusRada.PREDAT); em.persist(rad);
+        Komentar komentar = komentar(rad, "p".repeat(500), 1, "x".repeat(2000));
+        em.flush();
+        em.clear();
+
+        Komentar procitan = komentari.findById(komentar.getId()).orElseThrow();
+        assertEquals("p".repeat(500), procitan.getPutanjaFajla());
+        assertEquals("x".repeat(2000), procitan.getKomentar());
+    }
+
+    private Komentar komentar(Rad rad, String putanja, int linija, String tekst) {
+        Komentar komentar = new Komentar();
+        komentar.setRad(rad); komentar.setPutanjaFajla(putanja);
+        komentar.setBrojLinije(linija); komentar.setKomentar(tekst);
+        return komentari.save(komentar);
     }
 
     private Student student(String email, String indeks) {

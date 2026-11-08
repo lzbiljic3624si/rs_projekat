@@ -16,5 +16,4 @@ public class Predmet {
     private String naziv;
     @Column(nullable = false)
     private String jezik;
-    private String uslov;
 }

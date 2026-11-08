@@ -58,7 +58,7 @@ class SecurityHttpTest {
         when(predmeti.save(any())).thenReturn(predmet);
         mvc.perform(post("/api/predmet/add").header("Authorization", "Bearer " + token("PROFESOR"))
                         .contentType("application/json")
-                        .content("{\"naziv\":\"RS\",\"jezik\":\"Java\",\"uslov\":\"OOP\"}"))
+                        .content("{\"naziv\":\"RS\",\"jezik\":\"Java\"}"))
                 .andExpect(status().isCreated()).andExpect(content().string("1"));
         verify(predmeti).save(any());
     }
@@ -67,7 +67,7 @@ class SecurityHttpTest {
     void studentNeMozeDaDodaPredmet() throws Exception {
         mvc.perform(post("/api/predmet/add").header("Authorization", "Bearer " + token("STUDENT"))
                         .contentType("application/json")
-                        .content("{\"naziv\":\"RS\",\"jezik\":\"Java\",\"uslov\":\"OOP\"}"))
+                        .content("{\"naziv\":\"RS\",\"jezik\":\"Java\"}"))
                 .andExpect(status().isForbidden());
         verifyNoInteractions(predmeti);
     }

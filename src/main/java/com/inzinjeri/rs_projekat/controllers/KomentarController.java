@@ -42,6 +42,19 @@ public class KomentarController {
                 .toList();
     }
 
+    @GetMapping("/{komentarId}")
+    public KomentarResponse findById(@PathVariable Long komentarId, Authentication auth) {
+        return EntityMappers.toResponse(komentarService.findById(komentarId, auth));
+    }
+
+    @PutMapping("/{komentarId}")
+    @PreAuthorize("hasRole('PROFESOR')")
+    public KomentarResponse izmeni(@PathVariable Long komentarId, @Valid @RequestBody KomentarRequest request,
+                                  Authentication auth) {
+        return EntityMappers.toResponse(komentarService.izmeni(komentarId, request.getKomentar(),
+                request.getPutanjaFajla(), request.getBrojLinije(), auth));
+    }
+
     // Brisanje komentara
     @DeleteMapping("/{komentarId}")
     @PreAuthorize("hasRole('PROFESOR')")

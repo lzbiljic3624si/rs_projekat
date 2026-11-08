@@ -36,7 +36,6 @@ public final class EntityMappers {
         response.setId(predmet.getId());
         response.setNaziv(predmet.getNaziv());
         response.setJezik(predmet.getJezik());
-        response.setUslov(predmet.getUslov());
         return response;
     }
 

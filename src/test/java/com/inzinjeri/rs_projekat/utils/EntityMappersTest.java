@@ -17,7 +17,7 @@ class EntityMappersTest {
         student.setBrIndeksa("RN2312"); student.setGodUpisa(2023); student.setEmail("student@test.rs");
         student.setPasswordHash("tajni-hash");
         Predmet predmet = new Predmet(); predmet.setId(4L); predmet.setNaziv("Razvoj softvera");
-        predmet.setJezik("Java"); predmet.setUslov("Nema");
+        predmet.setJezik("Java");
         Rok rok = new Rok(); rok.setId(6L); rok.setNaziv("Junski"); rok.setSkolskaGodina(2026);
         Ucionica ucionica = new Ucionica(); ucionica.setId(5L); ucionica.setNaziv("Lab 1");
         Termin termin = new Termin(); termin.setId(7L); termin.setPredmet(predmet); termin.setRok(rok);
@@ -52,7 +52,6 @@ class EntityMappersTest {
         assertEquals(termin.getVremeKraj(), terminResponse.getVremeKraja());
         assertEquals("Razvoj softvera", terminResponse.getPredmet().getNaziv());
         assertEquals("Java", terminResponse.getPredmet().getJezik());
-        assertEquals("Nema", terminResponse.getPredmet().getUslov());
         assertEquals("Junski", terminResponse.getRok().getNaziv());
         assertEquals(2026, terminResponse.getRok().getSkolskaGodina());
         assertEquals("Lab 1", terminResponse.getUcionica().getNaziv());

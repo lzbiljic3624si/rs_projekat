@@ -39,7 +39,23 @@ public class KomentarService {
         // Proveravamo da li je korisnik profesor
         proveriProfesora(auth, radId);
 
+        Komentar komentar = new Komentar();
+        komentar.setRad(rad);
+        postaviSadrzaj(komentar, tekstKomentara, putanjaFajla, brojLinije);
+        return komentarRepository.save(komentar);
+    }
 
+    public Komentar izmeni(Long komentarId, String tekstKomentara, String putanjaFajla,
+                          Integer brojLinije, Authentication auth) {
+        Komentar komentar = komentarRepository.findById(komentarId)
+                .orElseThrow(() -> new ResourceNotFoundException("Komentar ne postoji"));
+
+        proveriProfesora(auth, komentar.getRad().getId());
+        postaviSadrzaj(komentar, tekstKomentara, putanjaFajla, brojLinije);
+        return komentarRepository.save(komentar);
+    }
+
+    private void postaviSadrzaj(Komentar komentar, String tekstKomentara, String putanjaFajla, Integer brojLinije) {
         if (tekstKomentara == null || tekstKomentara.isBlank()) {
             throw new BadRequestException("Tekst komentara je obavezan");
         }
@@ -65,14 +81,9 @@ public class KomentarService {
                     "Broj linije mora biti pozitivan broj");
         }
 
-        // Kreiranje komentara
-        Komentar komentar = new Komentar();
         komentar.setKomentar(tekstKomentara.trim());
-        komentar.setRad(rad);
         komentar.setPutanjaFajla(putanjaFajla.trim());
         komentar.setBrojLinije(brojLinije);
-
-        return komentarRepository.save(komentar);
     }
 
     // Prikaz komentara za odredjeni rad
@@ -83,7 +94,23 @@ public class KomentarService {
                 .orElseThrow(() ->
                         new ResourceNotFoundException("Rad ne postoji"));
 
-        // Komentare mogu da vide vlasnik rada ili profesor koji predaje predmet.
+        proveriCitanje(auth, radId);
+
+        return komentarRepository
+                .findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(radId);
+    }
+
+    @Transactional(readOnly = true)
+    public Komentar findById(Long komentarId, Authentication auth) {
+        Komentar komentar = komentarRepository.findById(komentarId)
+                .orElseThrow(() -> new ResourceNotFoundException("Komentar ne postoji"));
+
+        proveriCitanje(auth, komentar.getRad().getId());
+        return komentar;
+    }
+
+    // Komentare mogu da vide vlasnik rada ili profesor koji predaje predmet.
+    private void proveriCitanje(Authentication auth, Long radId) {
         boolean studentVlasnik =
                 pristupService.studentJeVlasnikRada(auth, radId);
 
@@ -94,9 +121,6 @@ public class KomentarService {
             throw new ForbiddenException(
                     "Nemate dozvolu da pregledate komentare ovog rada");
         }
-
-        return komentarRepository
-                .findByRad_IdOrderByPutanjaFajlaAscBrojLinijeAsc(radId);
     }
 
     // Brisanje komentara

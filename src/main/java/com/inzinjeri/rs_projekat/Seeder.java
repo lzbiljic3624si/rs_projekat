@@ -5,6 +5,7 @@ import com.inzinjeri.rs_projekat.repositories.*;
 import com.inzinjeri.rs_projekat.utils.ParseUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -28,17 +29,19 @@ public class Seeder implements CommandLineRunner {
     private final PrijavljenStudentRepository prijavljenStudentRepository;
     private final ZadatakRepository zadatakRepository;
     private final RadRepository radRepository;
+    private final KomentarRepository komentarRepository;
     private final PasswordEncoder passwordEncoder;
     private final KorisnikRepository korisnikRepository;
 
     @Override
     public void run(String... args) throws Exception {
-        // Ako podaci vec postoje, samo proveravamo da li postoje korisnicki nalozi.
+        // Postojecu bazu dopunjujemo nalozima i pocetnim komentarima.
         if (studentRepository.count() > 0) {
             napraviKorisnike(
                     studentRepository.findAll(),
                     profesorRepository.findAll()
             );
+            napraviKomentare();
             return;
         }
 
@@ -52,7 +55,7 @@ public class Seeder implements CommandLineRunner {
             ucionicaList.add(ucionicaRepository.save(u));
         }
 
-        // {naziv, jezik}; uslov je prethodni predmet u listi
+        // {naziv, jezik}
         String[][] predmeti = {
                 {"Uvod u programiranje", "C"},
                 {"Objektno orijentisano programiranje", "Java"},
@@ -65,7 +68,6 @@ public class Seeder implements CommandLineRunner {
             Predmet p = new Predmet();
             p.setNaziv(predmeti[i - 1][0]);
             p.setJezik(predmeti[i - 1][1]);
-            p.setUslov(i > 1 ? predmeti[i - 2][0] : null);
             predmetList.add(predmetRepository.save(p));
         }
 
@@ -181,6 +183,31 @@ public class Seeder implements CommandLineRunner {
             r.setPoeni(i == 4 ? 85.0 : null);
             r.setStatus(i == 4 ? StatusRada.OCENJEN : i % 2 == 0 ? StatusRada.PREDAT : StatusRada.PREUZET);
             radRepository.save(r);
+        }
+        napraviKomentare();
+    }
+
+    private void napraviKomentare() {
+        if (komentarRepository.count() > 0) {
+            return;
+        }
+
+        // {tekst komentara, putanja fajla}
+        String[][] komentari = {
+                {"Dodaj proveru deljenja nulom.", "src/main.c"},
+                {"Proveri da li knjiga postoji pre pozajmljivanja.", "src/Biblioteka.java"},
+                {"Proveri balans stabla nakon brisanja cvora.", "src/avl.c"},
+                {"Obradi slucaj kada nema spremnih procesa.", "src/rasporedjivac.c"},
+                {"Dodaj validaciju ulaznih podataka.", "src/StudentController.java"}
+        };
+        List<Rad> radovi = radRepository.findAll(Sort.by("id"));
+        for (int i = 0; i < Math.min(radovi.size(), komentari.length); i++) {
+            Komentar k = new Komentar();
+            k.setRad(radovi.get(i));
+            k.setKomentar(komentari[i][0]);
+            k.setPutanjaFajla(komentari[i][1]);
+            k.setBrojLinije(11 + i);
+            komentarRepository.save(k);
         }
     }
 

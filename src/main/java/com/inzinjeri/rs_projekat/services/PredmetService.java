@@ -29,8 +29,6 @@ public class PredmetService {
         }
         predmet.setNaziv(request.getNaziv());
         predmet.setJezik(request.getJezik());
-        String uslov = request.getUslov();
-        predmet.setUslov(uslov == null || uslov.isBlank() || "0".equals(uslov.trim()) ? null : uslov);
         return predmetRepository.save(predmet);
     }
 
@@ -45,10 +43,6 @@ public class PredmetService {
     }
 
     public Predmet save(Predmet predmet) {
-        String uslov = predmet.getUslov();
-        if (uslov != null && (uslov.isBlank() || "0".equals(uslov.trim()))) {
-            predmet.setUslov(null);
-        }
         if (!predmetRepository.getPredmetByNaziv(predmet.getNaziv()).isEmpty()) {
             throw new ConflictException("Predmet sa tim nazivom vec postoji");
         }

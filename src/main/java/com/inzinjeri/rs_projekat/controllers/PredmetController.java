@@ -52,7 +52,6 @@ public class PredmetController {
         Predmet predmet = new Predmet();
         predmet.setNaziv(request.getNaziv());
         predmet.setJezik(request.getJezik());
-        predmet.setUslov(request.getUslov());
 
         return predmetService.save(predmet).getId();
     }

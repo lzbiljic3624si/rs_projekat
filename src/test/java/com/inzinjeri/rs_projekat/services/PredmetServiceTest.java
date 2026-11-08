@@ -5,9 +5,6 @@ import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.model.Predmet;
 import com.inzinjeri.rs_projekat.repositories.PredmetRepository;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.NullAndEmptySource;
-import org.junit.jupiter.params.provider.ValueSource;
 
 import java.util.List;
 import java.util.Optional;
@@ -19,18 +16,6 @@ class PredmetServiceTest {
     private final PredmetRepository repository = mock(PredmetRepository.class);
     private final PredmetService service = new PredmetService(repository, mock(com.inzinjeri.rs_projekat.repositories.PredajePredmetRepository.class),
             mock(com.inzinjeri.rs_projekat.repositories.TerminRepository.class));
-
-    @ParameterizedTest
-    @NullAndEmptySource
-    @ValueSource(strings = {" ", "0", " 0 "})
-    void predmetBezUslovaCuvaNull(String uslov) {
-        Predmet predmet = new Predmet();
-        predmet.setNaziv("Uvod u programiranje");
-        predmet.setUslov(uslov);
-        when(repository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        assertNull(service.save(predmet).getUslov());
-    }
 
     @Test
     void cuvaNovPredmet() {

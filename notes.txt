@@ -1,9 +1,12 @@
 TODO: PREGLED I OCENJIVANJE
 
-TODO: Da li su nam neophodni komenatri u modelu
-    Treba da se napravi novi model i sve ostalo ceo komplet
-    U editoru profesor klikne na liniju koda koju zeli da komentarise i onda napise komentar
-    U modelu se cuva id, Rad, sadrzaj, linija - pa na osnovu toga sve servere, controllere i ostalo
+Nisu potrebni novi model, kontroler ni servis: Rad vec cuva poene i putanju resenja, a Komentar vezu sa radom, putanju fajla i broj linije; komentarisanje i ocenjivanje vec postoje.
+Prosirio bih RadController, RadService i RadRepository opcionim filterima po grupi, terminu i zadatku, uz postojeci predmet i status, tako da profesor dobija sve predate/ocenjene radove svog predmeta ili samo izabrani skup.
+Za preuzimanje samih resenja dodao bih endpoint koji taj skup pakuje u ZIP preko Java ZipOutputStream, ali prvo treba povezati sacuvanu repoPutanjaResenja sa stvarnim izvorom fajlova, jer trenutno postoji samo generisanje putanje, bez preuzimanja sadrzaja; pristup fajlovima mora ostati unutar dozvoljenog izvora.
+Zadrzao bih postojece provere u PristupService, KomentarService i RadService: student cita samo komentare i poene svojih radova, a profesor pristupa samo radovima predmeta koje predaje, ukljucujuci novi endpoint za preuzimanje.
+Plan bih proverio testovima za kombinovanje filtera, sadrzaj ZIP-a i nedostajuce fajlove, kao i zabranu pristupa tudjim komentarima, poenima i resenjima.
 
 
-TODO: Uslov za predmet obrisati ili zameniti za broj poena - seeder
+TODO: dodati citanje studenta iz operativnog sistema
+
+TODO: kada se preuzme ripo i pocen rad IDE se auto otvara

@@ -82,11 +82,14 @@ class ModelCrudHttpTest {
     }
 
     @Test
-    void predmetSeMenjaBezPromeneIdINormalizujeUslov() throws Exception {
+    void predmetSeMenjaBezPromeneId() throws Exception {
         mvc.perform(put("/api/predmet/edit/4").with(profesor()).contentType("application/json")
-                .content("{\"naziv\":\"Novi\",\"jezik\":\"Python\",\"uslov\":\"0\"}"))
-                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(4)).andExpect(jsonPath("$.naziv").value("Novi"));
-        assertEquals("Python", predmet.getJezik()); assertNull(predmet.getUslov());
+                .content("{\"naziv\":\"Novi\",\"jezik\":\"Python\"}"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.id").value(4))
+                .andExpect(jsonPath("$.naziv").value("Novi"))
+                .andExpect(jsonPath("$.jezik").value("Python"))
+                .andExpect(jsonPath("$.length()").value(3));
+        assertEquals("Python", predmet.getJezik());
     }
 
     @Test
