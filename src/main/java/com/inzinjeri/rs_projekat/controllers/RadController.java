@@ -48,9 +48,24 @@ public class RadController {
 
     @GetMapping("/predmet/{predmetId}")
     @PreAuthorize("@pristupService.profesorPredajePredmet(authentication, #predmetId)")
-    public List<RadResponse> zaPredmet(@PathVariable Long predmetId,
-                                      @RequestParam(required = false) StatusRada status, Authentication auth) {
-        return radService.zaPredmet(predmetId, status, auth).stream().map(EntityMappers::toResponse).toList();
+    public List<RadResponse> zaPredmet(
+            @PathVariable Long predmetId,
+            @RequestParam(required = false) StatusRada status,
+            @RequestParam(required = false) Long grupaId,
+            @RequestParam(required = false) Long terminId,
+            @RequestParam(required = false) Long zadatakId,
+            Authentication auth) {
+
+        return radService.zaPredmet(
+                        predmetId,
+                        status,
+                        grupaId,
+                        terminId,
+                        zadatakId,
+                        auth
+                ).stream()
+                .map(EntityMappers::toResponse)
+                .toList();
     }
 
     @GetMapping("/{radId}")

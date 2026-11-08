@@ -35,4 +35,25 @@ public interface RadRepository extends JpaRepository<Rad, Long> {
 
     @Query("select r from Rad r where r.zadatak.grupa.termin.predmet.id = :predmetId and (:status is null or r.status = :status)")
     List<Rad> findByPredmetIdAndStatus(@Param("predmetId") Long predmetId, @Param("status") StatusRada status);
+
+    // Pretraga radova po predmetu uz mogucnost kombinovanja dodatnih filtera.
+    @Query("""
+            select r
+            from Rad r
+            join r.zadatak z
+            join z.grupa g
+            join g.termin t
+            where t.predmet.id = :predmetId
+              and (:status is null or r.status = :status)
+              and (:grupaId is null or g.id = :grupaId)
+              and (:terminId is null or t.id = :terminId)
+              and (:zadatakId is null or z.id = :zadatakId)
+            """)
+    List<Rad> findByPredmetIdAndFilters(
+            @Param("predmetId") Long predmetId,
+            @Param("status") StatusRada status,
+            @Param("grupaId") Long grupaId,
+            @Param("terminId") Long terminId,
+            @Param("zadatakId") Long zadatakId
+    );
 }

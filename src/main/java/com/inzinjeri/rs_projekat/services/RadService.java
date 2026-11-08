@@ -33,9 +33,23 @@ public class RadService {
     private final Clock clock;
 
     @Transactional(readOnly = true)
-    public List<Rad> zaPredmet(Long predmetId, StatusRada status, Authentication auth) {
+    public List<Rad> zaPredmet(
+            Long predmetId,
+            StatusRada status,
+            Long grupaId,
+            Long terminId,
+            Long zadatakId,
+            Authentication auth) {
+
         proveriDaPredaje(auth, predmetId);
-        return radRepository.findByPredmetIdAndStatus(predmetId, status);
+
+        return radRepository.findByPredmetIdAndFilters(
+                predmetId,
+                status,
+                grupaId,
+                terminId,
+                zadatakId
+        );
     }
 
     @Transactional(readOnly = true)
