@@ -12,7 +12,6 @@ import com.inzinjeri.rs_projekat.model.StatusRada;
 import com.inzinjeri.rs_projekat.model.Student;
 import com.inzinjeri.rs_projekat.model.Zadatak;
 import com.inzinjeri.rs_projekat.utils.VremeTermina;
-import com.inzinjeri.rs_projekat.utils.ParseUtils;
 import com.inzinjeri.rs_projekat.utils.GitHubFiles;
 import com.inzinjeri.rs_projekat.utils.EntityMappers;
 import com.inzinjeri.rs_projekat.repositories.*;
@@ -108,6 +107,37 @@ public class RadService {
         proveriDaPredaje(auth, predmetId);
 
         return radRepository.findByPredmetIdAndStatus(predmetId, StatusRada.PREDAT);
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] arhivaPredmeta(Long predmetId, StatusRada status, Long grupaId, Long terminId, Long zadatakId,  Authentication auth) {
+        proveriDaPredaje(auth, predmetId);
+
+        // U arhivu mogu da udju samo predati i ocenjeni radovi.
+        if (status != null
+                && status != StatusRada.PREDAT
+                && status != StatusRada.OCENJEN) {
+            throw new BadRequestException(
+                    "Moguce je preuzeti samo predate ili ocenjene radove");
+        }
+
+        // Pronalazimo radove uz primenu svih filtera.
+        List<Rad> radovi = radRepository.findByPredmetIdAndFilters(predmetId, status, grupaId, terminId, zadatakId);
+
+        // Pripremamo izvore za zajednicku ZIP arhivu.
+        List<GitHubService.ArchiveSource> izvori = radovi.stream()
+                .filter(rad -> rad.getStatus() == StatusRada.PREDAT
+                        || rad.getStatus() == StatusRada.OCENJEN)
+                .sorted(java.util.Comparator.comparing(Rad::getId))
+                .map(this::napraviArchiveSource)
+                .toList();
+
+        if(izvori.isEmpty()) {
+            throw new ResourceNotFoundException("Nema predatih ili ocenjenih radova za zadate filtere");
+        }
+
+        // Pravimo jednu ZIP arhivu od svih pronadjenih radova.
+        return github.archiveMany(izvori);
     }
 
     @Transactional
@@ -227,7 +257,7 @@ public class RadService {
             throw new ConflictException("Zadatak je vec preuzet");
         }
 
-        if (oporavak && (zadatak.getGithubRepo() == null || zadatak.getGithubFolder() == null || zadatak.getGithubCommit() == null)) {
+        if (zadatak.getGithubRepo() == null || zadatak.getGithubFolder() == null || zadatak.getGithubCommit() == null) {
             throw new ConflictException("Profesor prvo treba da objavi GitHub fajlove zadatka");
         }
 
@@ -237,11 +267,7 @@ public class RadService {
         Rad rad = new Rad();
         rad.setStudent(student);
         rad.setZadatak(zadatak);
-        if (zadatak.getGithubCommit() != null) {
-            pripremiGitHubRad(rad, student, zadatak);
-        } else {
-            rad.setRepoPutanjaResenja(automatskaPutanjaResenja(student, zadatak));
-        }
+        pripremiGitHubRad(rad, student, zadatak);
         rad.setVremePreuzimanja(sada);
         rad.setStatus(StatusRada.PREUZET);
 
@@ -314,17 +340,7 @@ public class RadService {
         }
     }
 
-    private String automatskaPutanjaResenja(Student student, Zadatak zadatak) {
-        var termin = zadatak == null || zadatak.getGrupa() == null ? null : zadatak.getGrupa().getTermin();
-        if (student == null || termin == null || termin.getPredmet() == null) {
-            throw new ConflictException("Nedostaju podaci za putanju repozitorijuma resenja");
-        }
-        String putanja = ParseUtils.repoPutanjaResenja(student.getEmail(), termin.getPredmet().getNaziv(), termin.getDatum());
-        if (putanja == null) {
-            throw new ConflictException("Email, predmet i datum moraju omoguciti putanju resenja do 255 znakova");
-        }
-        return putanja;
-    }
+
 
     private void proveriDaPredaje(Authentication auth, Long predmetId) {
         boolean predaje = predajePredmetRepository.getPredmetiZaPredavaca(auth.getName())
@@ -335,5 +351,22 @@ public class RadService {
         if (!predaje) {
             throw new ForbiddenException("Profesor ne predaje ovaj predmet");
         }
+    }
+
+    private GitHubService.ArchiveSource napraviArchiveSource(Rad rad){
+        if(rad.getGithubRepo() == null
+                || rad.getGithubFolder() == null
+                || rad.getGithubCommit() == null){
+            throw new ConflictException(
+                    "Rad" + rad.getId() + " nema sacuvanu GitHub putanju ili commit"
+            );
+        }
+
+        return new GitHubService.ArchiveSource(
+                rad.getId(),
+                rad.getGithubRepo(),
+                rad.getGithubCommit(),
+                rad.getGithubFolder()
+        );
     }
 }

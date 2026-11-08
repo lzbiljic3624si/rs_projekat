@@ -8,6 +8,7 @@ import com.inzinjeri.rs_projekat.controllers.response.ZadatakResponse;
 import com.inzinjeri.rs_projekat.model.Grupa;
 import com.inzinjeri.rs_projekat.model.Zadatak;
 import com.inzinjeri.rs_projekat.model.Rad;
+import com.inzinjeri.rs_projekat.model.Rok;
 import com.inzinjeri.rs_projekat.model.StatusRada;
 import com.inzinjeri.rs_projekat.repositories.*;
 import com.inzinjeri.rs_projekat.utils.EntityMappers;
@@ -23,6 +24,7 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.Clock;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -161,15 +163,29 @@ public class ZadatakService {
             zadatak = new Zadatak();
             zadatak.setGrupa(grupa);
         }
+
         String folder = zadatak.getGithubFolder();
-        if (folder == null) {
-            String predmet = GitHubFiles.segment(termin.getPredmet().getNaziv(), "predmet-" + predmetId(grupa));
+
+        if(folder == null) {
+            // Dobijamo folder roka na osnovu njegovog naziva i godine.
+            String folderRoka = folderRoka(termin.getRok());
+
+            // Formiramo nazive predmeta i grupe.
+            String predmet = GitHubFiles.segment(termin.getPredmet().getNaziv(), "predmet-" +predmetId(grupa));
+
             String imeGrupe = GitHubFiles.segment(grupa.getNaziv(), "grupa-" + grupaId);
-            folder = predmet + "/" + imeGrupe + "/zadatak";
+
+            // Osnovna putanja do pocetnih fajlova zadatka.
+            folder = folderRoka + "/" + predmet + "/" + imeGrupe + "/zadatak";
+
+            // Proveravamo da li folder vec postoji u drugom zadatku.
             int suffix = 1;
-            while (!zadatakRepository.pronadjiFolderZaIzmenu(repo, folder,
-                    zadatak.getId() == null ? -1L : zadatak.getId()).isEmpty()) {
-                folder = predmet + "/" + imeGrupe + "-" + grupaId + (suffix == 1 ? "" : "-" + suffix) + "/zadatak";
+
+            while(!zadatakRepository.pronadjiFolderZaIzmenu(repo, folder, zadatak.getId() == null ? -1L : zadatak.getId()).isEmpty()){
+                String grupaSaSufiksom = imeGrupe + "-" + grupaId + (suffix == 1 ? "" : "-" + suffix);
+
+                folder = folderRoka + "/" + predmet + "/" + grupaSaSufiksom + "/zadatak";
+
                 suffix++;
             }
         }
@@ -258,5 +274,62 @@ public class ZadatakService {
         }
 
         return grupa.getTermin().getPredmet().getId();
+    }
+
+    private String folderRoka(Rok rok){
+        if(rok == null
+                || rok.getNaziv() == null
+                || rok.getNaziv().isBlank()
+                || rok.getSkolskaGodina() == null){
+            throw new ConflictException(
+                    "Roku nedostaju naziv ili skolska godina");
+        }
+
+        String naziv = rok.getNaziv().trim().toLowerCase(Locale.ROOT);
+
+        int mesec;
+
+        if (naziv.startsWith("januar")) {
+            mesec = 1;
+        } else if (naziv.startsWith("februar")) {
+            mesec = 2;
+        } else if (naziv.startsWith("mart")) {
+            mesec = 3;
+        } else if (naziv.startsWith("april")) {
+            mesec = 4;
+        } else if (naziv.startsWith("maj")) {
+            mesec = 5;
+        } else if (naziv.startsWith("jun")) {
+            mesec = 6;
+        } else if (naziv.startsWith("jul")) {
+            mesec = 7;
+        } else if (naziv.startsWith("avgust")) {
+            mesec = 8;
+        } else if (naziv.startsWith("septembar")) {
+            mesec = 9;
+        } else if (naziv.startsWith("oktobar")) {
+            mesec = 10;
+        } else if (naziv.startsWith("novembar")) {
+            mesec = 11;
+        } else if (naziv.startsWith("decembar")) {
+            mesec = 12;
+        } else {
+            throw new ConflictException(
+                    "Naziv roka mora sadrzati naziv meseca"
+            );
+        }
+
+        int godina = rok.getSkolskaGodina();
+
+        // Januarski do oktobarski rokovi pripadaju narednoj kalendarskoj godini.
+        if (mesec <= 10) {
+            godina++;
+        }
+
+        // Zadrzavamo originalni naziv roka.
+        return GitHubFiles.segment(
+                rok.getNaziv().trim() + "-" + godina,
+                "rok-" + rok.getId()
+        );
     }
 }

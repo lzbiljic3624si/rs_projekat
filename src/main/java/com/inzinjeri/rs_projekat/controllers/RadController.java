@@ -64,6 +64,30 @@ public class RadController {
                 .stream().map(EntityMappers::toResponse).toList();
     }
 
+    @GetMapping(value = "/predmet/{predmetId}/resenja.zip", produces = "application/zip")
+    @PreAuthorize("hasRole('PROFESOR') and @pristupService.profesorPredajePredmet(authentication, #predmetId)")
+    public ResponseEntity<byte[]> downloadResenjaPredmeta(
+            @PathVariable Long predmetId,
+            @RequestParam(required = false) StatusRada status,
+            @RequestParam(required = false) Long grupaId,
+            @RequestParam(required = false) Long terminId,
+            @RequestParam(required = false) Long zadatakId,
+            Authentication auth){
+
+        byte[] arhiva = radService.arhivaPredmeta(predmetId, status, grupaId, terminId, zadatakId, auth);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename("resenja-predmeta-" + predmetId + ".zip")
+                                .build()
+                                .toString()
+                )
+                .body(arhiva);
+    }
+
     @GetMapping("/{radId}")
     @PreAuthorize("@pristupService.studentJeVlasnikRada(authentication, #radId) or "
             + "@pristupService.profesorPredajePredmetRada(authentication, #radId)")

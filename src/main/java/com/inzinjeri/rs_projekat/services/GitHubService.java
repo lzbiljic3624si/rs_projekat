@@ -43,6 +43,7 @@ public class GitHubService {
     public record UploadFile(String path, byte[] content) {}
     public record TreeEntry(String path, String type, String sha, long size) {}
     public record FileContent(String path, String sha, String commit, byte[] content, boolean binary) {}
+    public record ArchiveSource(Long radId, String repo, String commit, String folder) {}
 
     @Autowired
     public GitHubService(@Value("${app.github.owner:}") String owner,
@@ -111,6 +112,116 @@ public class GitHubService {
             return output.toByteArray();
         } catch (IOException e) {
             throw new GitHubException(502, "Nije moguce pripremiti arhivu projekta");
+        }
+    }
+
+    public byte[] archiveMany(List<ArchiveSource> sources){
+
+        if(sources == null || sources.isEmpty()){
+            throw new GitHubException(404,
+                    "Nema radova za preuzimanje");
+        }
+
+        Set<Long> radIds = new HashSet<>();
+        Set<String> repositories = new HashSet<>();
+        for (ArchiveSource source : sources) {
+
+            if (source == null
+                    || source.radId() == null
+                    || source.radId() <= 0) {
+                throw new GitHubException(400, "Neispravan ID rada");
+            }
+
+            if (!radIds.add(source.radId())) {
+                throw new GitHubException(400,
+                        "Rad je prosledjen vise puta");
+            }
+
+            if (source.repo() == null || source.repo().isBlank()
+                    || source.commit() == null || source.commit().isBlank()
+                    || source.folder() == null || source.folder().isBlank()) {
+                throw new GitHubException(409,
+                        "Rad nema sacuvanu GitHub putanju ili verziju");
+            }
+
+            GitHubFiles.path(source.folder());
+            sha(source.commit());
+
+            // Svaki repo proveravamo samo jednom.
+            String repoKey = source.repo().toLowerCase(Locale.ROOT);
+
+            if (repositories.add(repoKey)) {
+                repositoryBranch(source.repo());
+            }
+        }
+
+        try (ByteArrayOutputStream output = new ByteArrayOutputStream(); ZipOutputStream zip = new ZipOutputStream(output)){
+            long total = 0;
+            int fileCount = 0;
+
+            Set<String> zipPaths = new HashSet<>();
+            for (ArchiveSource source : sources) {
+                // Ucitavamo fajlove iz sacuvane GitHub verzije rada.
+                List<TreeEntry> entries = treeAt(
+                        source.repo(),
+                        source.commit(),
+                        source.folder()
+                );
+
+                int radFiles = 0;
+
+                for(TreeEntry entry : entries){
+                    // Preskacemo direktorijume.
+                    if (!"blob".equals(entry.type())) {
+                        continue;
+                    }
+
+                    fileCount++;
+                    total += entry.size();
+
+                    if (fileCount > GitHubFiles.MAX_FILES
+                            || total > GitHubFiles.MAX_TOTAL_BYTES) {
+                        throw limit();
+                    }
+
+                    // Cuvamo originalnu strukturu putanje.
+                    String zipPath = source.folder() + "/" + entry.path();
+
+                    if (!zipPaths.add(zipPath.toLowerCase(Locale.ROOT))) {
+                        throw new GitHubException(409,
+                                "Putanje fajlova u ZIP arhivi se ponavljaju");
+                    }
+
+                    // Preuzimamo stvarni sadrzaj fajla.
+                    FileContent file = readBlob(
+                            source.repo(),
+                            source.commit(),
+                            entry
+                    );
+
+                    ZipEntry zipped = new ZipEntry(zipPath);
+                    zipped.setTime(0);
+
+                    zip.putNextEntry(zipped);
+                    zip.write(file.content());
+                    zip.closeEntry();
+
+                    radFiles++;
+                }
+
+                if (radFiles == 0) {
+                    throw new GitHubException(
+                            409,
+                            "Rad " + source.radId()
+                                    + " nema fajlove za preuzimanje"
+                    );
+                }
+            }
+            zip.finish();
+
+            return output.toByteArray();
+        } catch (IOException e){
+            throw new GitHubException(502, "Nije moguce pripremiti zajednicku ZIP arhivu");
         }
     }
 
