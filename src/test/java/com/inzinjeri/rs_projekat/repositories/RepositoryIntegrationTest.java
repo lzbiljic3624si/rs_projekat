@@ -258,6 +258,78 @@ class RepositoryIntegrationTest {
     }
 
     @Test
+    void filteriRadovaKombinujuPredmetStatusGrupuTerminIZadatakPresekom() {
+        Predmet java = predmet("Java", "sr");
+        Predmet python = predmet("Python", "sr");
+        Rok rok = rok("Januar", 2026);
+        Ucionica lab = ucionica("Lab");
+        Termin prviTermin = termin(java, rok, lab, LocalDate.of(2026, 1, 20), LocalTime.of(10, 0), LocalTime.NOON);
+        Termin drugiTermin = termin(java, rok, lab, LocalDate.of(2026, 1, 21), LocalTime.of(10, 0), LocalTime.NOON);
+        Termin tudjiTermin = termin(python, rok, lab, LocalDate.of(2026, 1, 22), LocalTime.of(10, 0), LocalTime.NOON);
+        Grupa prvaGrupa = grupa("G1", prviTermin);
+        Grupa drugaGrupa = grupa("G2", prviTermin);
+        Grupa trecaGrupa = grupa("G3", drugiTermin);
+        Grupa tudjaGrupa = grupa("G1", tudjiTermin);
+        Zadatak prviZadatak = zadatak(prvaGrupa);
+        Zadatak drugiZadatak = zadatak(drugaGrupa);
+        Zadatak treciZadatak = zadatak(trecaGrupa);
+        Zadatak tudjiZadatak = zadatak(tudjaGrupa);
+        Student ana = student("ana@test.rs", "2020/001");
+        Student boris = student("boris@test.rs", "2020/002");
+        Rad prviPredat = rad(ana, prviZadatak, StatusRada.PREDAT);
+        Rad prviOcenjen = rad(boris, prviZadatak, StatusRada.OCENJEN);
+        Rad drugiPreuzet = rad(ana, drugiZadatak, StatusRada.PREUZET);
+        Rad drugiPredat = rad(boris, drugiZadatak, StatusRada.PREDAT);
+        Rad treciPredat = rad(ana, treciZadatak, StatusRada.PREDAT);
+        Rad treciOcenjen = rad(boris, treciZadatak, StatusRada.OCENJEN);
+        Rad tudjiPredat = rad(ana, tudjiZadatak, StatusRada.PREDAT);
+        Rad tudjiPreuzet = rad(boris, tudjiZadatak, StatusRada.PREUZET);
+        em.flush();
+        em.clear();
+
+        assertEquals(List.of(prviPredat.getId(), prviOcenjen.getId(), drugiPreuzet.getId(),
+                        drugiPredat.getId(), treciPredat.getId(), treciOcenjen.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), null, null, null, null)));
+        assertEquals(List.of(prviPredat.getId(), drugiPredat.getId(), treciPredat.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.PREDAT, null, null, null)));
+        assertEquals(List.of(prviOcenjen.getId(), treciOcenjen.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.OCENJEN, null, null, null)));
+        assertEquals(List.of(drugiPreuzet.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.PREUZET, null, null, null)));
+        assertEquals(List.of(prviPredat.getId(), prviOcenjen.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), null, prvaGrupa.getId(), null, null)));
+        assertEquals(List.of(prviPredat.getId(), prviOcenjen.getId(), drugiPreuzet.getId(), drugiPredat.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), null, null, prviTermin.getId(), null)));
+        assertEquals(List.of(treciPredat.getId(), treciOcenjen.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(java.getId(), null, null, null, treciZadatak.getId())));
+        assertEquals(List.of(tudjiPredat.getId(), tudjiPreuzet.getId()),
+                radIds(radovi.findByPredmetIdAndFilters(python.getId(), null, null, null, null)));
+
+        assertEquals(List.of(drugiPredat.getId()), radIds(radovi.findByPredmetIdAndFilters(java.getId(),
+                StatusRada.PREDAT, drugaGrupa.getId(), prviTermin.getId(), drugiZadatak.getId())));
+        assertEquals(List.of(prviPredat.getId(), prviOcenjen.getId()), radIds(radovi.findByPredmetIdAndFilters(
+                java.getId(), null, prvaGrupa.getId(), prviTermin.getId(), prviZadatak.getId())));
+        assertEquals(List.of(treciPredat.getId()), radIds(radovi.findByPredmetIdAndFilters(java.getId(),
+                StatusRada.PREDAT, null, drugiTermin.getId(), treciZadatak.getId())));
+
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), null,
+                prvaGrupa.getId(), drugiTermin.getId(), null).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), null,
+                prvaGrupa.getId(), null, drugiZadatak.getId()).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.OCENJEN,
+                drugaGrupa.getId(), prviTermin.getId(), drugiZadatak.getId()).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.PREDAT,
+                tudjaGrupa.getId(), null, null).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), null,
+                null, tudjiTermin.getId(), null).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), null,
+                null, null, tudjiZadatak.getId()).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(java.getId(), StatusRada.PREDAT,
+                tudjaGrupa.getId(), tudjiTermin.getId(), tudjiZadatak.getId()).isEmpty());
+        assertTrue(radovi.findByPredmetIdAndFilters(-1L, null, null, null, null).isEmpty());
+    }
+
+    @Test
     void komentariSeCuvajuFiltrirajuPoRaduISortirajuPoFajluILiniji() {
         Rad rad = new Rad(); rad.setStatus(StatusRada.PREDAT); em.persist(rad);
         Rad drugiRad = new Rad(); drugiRad.setStatus(StatusRada.PREDAT); em.persist(drugiRad);
@@ -322,6 +394,28 @@ class RepositoryIntegrationTest {
     private RasporedService rasporedService() {
         return new RasporedService(rokovi, ucionice, termini, grupe, predmeti, predavanja, radovi, prijave, zadaci,
                 Clock.fixed(Instant.parse("2026-01-01T00:00:00Z"), ZoneId.of("Europe/Belgrade")));
+    }
+
+    private Zadatak zadatak(Grupa grupa) {
+        Zadatak zadatak = new Zadatak();
+        zadatak.setNaziv("Zadatak grupe " + grupa.getId());
+        zadatak.setRepoPutanja("https://example.test/zadatak-" + grupa.getId());
+        zadatak.setGrupa(grupa);
+        em.persist(zadatak);
+        return zadatak;
+    }
+
+    private Rad rad(Student student, Zadatak zadatak, StatusRada status) {
+        Rad rad = new Rad();
+        rad.setStudent(student);
+        rad.setZadatak(zadatak);
+        rad.setStatus(status);
+        em.persist(rad);
+        return rad;
+    }
+
+    private List<Long> radIds(List<Rad> radovi) {
+        return radovi.stream().map(Rad::getId).sorted().toList();
     }
 
     private Komentar komentar(Rad rad, String putanja, int linija, String tekst) {
