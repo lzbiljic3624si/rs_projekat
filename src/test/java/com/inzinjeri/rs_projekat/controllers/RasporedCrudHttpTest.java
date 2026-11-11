@@ -50,6 +50,7 @@ class RasporedCrudHttpTest {
     @MockitoBean RadService radService;
     @MockitoBean ZadatakService zadatakService;
     @MockitoBean KomentarService komentarService;
+    @MockitoBean MonitoringService monitoringService;
     @MockitoBean(name = "pristupService") PristupService pristupService;
 
     private Rok rok;

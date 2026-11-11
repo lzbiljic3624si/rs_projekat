@@ -1,4 +1,4 @@
-package com.inzinjeri.rs_projekat.controllers;
+package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.exceptions.ResourceNotFoundException;
 import com.inzinjeri.rs_projekat.model.*;
@@ -13,11 +13,11 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-class MonitoringControllerTest {
+class MonitoringServiceTest {
     private final TerminRepository termini = mock(TerminRepository.class);
     private final PrijavljenStudentRepository prijave = mock(PrijavljenStudentRepository.class);
     private final RadRepository radovi = mock(RadRepository.class);
-    private final MonitoringController controller = new MonitoringController(termini, prijave, radovi);
+    private final MonitoringService service = new MonitoringService(termini, prijave, radovi);
 
     @Test
     void prikazujePrijavljeneStatuseIZbirneBrojeve() {
@@ -33,7 +33,7 @@ class MonitoringControllerTest {
                 rad(pregledan, StatusRada.OCENJEN), rad(pregledan, StatusRada.PREUZET),
                 rad(student(5L), StatusRada.PREDAT)));
 
-        var odgovor = controller.zaTermin(7L);
+        var odgovor = service.zaTermin(7L);
 
         assertEquals(4, odgovor.ukupnoPrijavljenih());
         assertEquals(3, odgovor.preuzeli());
@@ -46,7 +46,7 @@ class MonitoringControllerTest {
 
     @Test
     void nepostojeciTerminVracaGresku() {
-        assertThrows(ResourceNotFoundException.class, () -> controller.zaTermin(99L));
+        assertThrows(ResourceNotFoundException.class, () -> service.zaTermin(99L));
         verifyNoInteractions(prijave, radovi);
     }
 

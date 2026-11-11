@@ -190,8 +190,9 @@ class DopuneApiHttpTest {
     }
 
     @Test
-    void preuzimanjeDodeljujePutanjuOdEmailaPredmetaIDatuma() throws Exception {
+    void preuzimanjeDodeljujeStudentskiFolderUnutarObjavljenogZadatka() throws Exception {
         vreme("10:30:00");
+        objavljeniZadatak();
         student.setEmail("mnikolic1223rn@raf.rs");
         termin.getPredmet().setNaziv("Razvoj softvera");
         when(studenti.pronadjiPoEmailu("mnikolic1223rn@raf.rs")).thenReturn(Optional.of(student));
@@ -200,35 +201,40 @@ class DopuneApiHttpTest {
                 .authorities(new SimpleGrantedAuthority("ROLE_STUDENT")))).andExpect(status().isCreated());
         var sacuvan = org.mockito.ArgumentCaptor.forClass(Rad.class);
         verify(radovi).save(sacuvan.capture());
-        assertEquals("mnikolic1223rn_razvoj-softvera_150630", sacuvan.getValue().getRepoPutanjaResenja());
+        assertEquals("Jun-2031/RS/G1/mnikolic1223rn", sacuvan.getValue().getGithubFolder());
+        assertEquals("test/rok", sacuvan.getValue().getGithubRepo());
+        assertEquals("a".repeat(40), sacuvan.getValue().getIzvorniCommit());
+        assertNull(sacuvan.getValue().getRepoPutanjaResenja());
         assertEquals(StatusRada.PREUZET, sacuvan.getValue().getStatus());
         assertNull(sacuvan.getValue().getVremePredaje());
     }
 
     @ParameterizedTest
-    @CsvSource({"2030-01-02,020130", "2030-12-31,311230"})
-    void putanjaKoristiDatumTerminaUFormatuDDMMYY(String datum, String ocekivaniDatum) throws Exception {
+    @ValueSource(strings = {"2030-01-02", "2030-12-31"})
+    void preuzimanjeCuvaObjavljeniFolderNezavisnoOdDatumaTermina(String datum) throws Exception {
+        objavljeniZadatak();
         LocalDate dan = LocalDate.parse(datum); termin.setDatum(dan);
         when(clock.instant()).thenReturn(dan.atTime(10, 30).atZone(ZoneId.of("Europe/Belgrade")).toInstant());
         when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
         mvc.perform(post("/api/rad/5/preuzmi").with(student())).andExpect(status().isCreated());
         var sacuvan = org.mockito.ArgumentCaptor.forClass(Rad.class); verify(radovi).save(sacuvan.capture());
-        assertEquals("student_rs_" + ocekivaniDatum, sacuvan.getValue().getRepoPutanjaResenja());
+        assertEquals("Jun-2031/RS/G1/student", sacuvan.getValue().getGithubFolder());
     }
 
     @Test
-    void putanjaNormalizujeNazivPredmetaBezPromeneSamogPredmeta() throws Exception {
+    void preimenovanjePredmetaNeMenjaObjavljeniFolder() throws Exception {
+        objavljeniZadatak();
         vreme("10:30:00"); termin.getPredmet().setNaziv("  Računarske mreže / 2  ");
         when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
         mvc.perform(post("/api/rad/5/preuzmi").with(student())).andExpect(status().isCreated());
         var sacuvan = org.mockito.ArgumentCaptor.forClass(Rad.class); verify(radovi).save(sacuvan.capture());
-        assertEquals("student_racunarske-mreze-2_150630", sacuvan.getValue().getRepoPutanjaResenja());
+        assertEquals("Jun-2031/RS/G1/student", sacuvan.getValue().getGithubFolder());
         assertEquals("  Računarske mreže / 2  ", termin.getPredmet().getNaziv());
     }
 
     @Test
-    void neispravniPodaciZaPutanjuNeUpisujuRad() throws Exception {
-        vreme("10:30:00"); termin.setPredmet(null);
+    void neispravanGitHubFolderNeUpisujeRad() throws Exception {
+        vreme("10:30:00"); objavljeniZadatak(); zadatak.setGithubFolder("Jun-2031/RS/G1/resenje");
         when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
         mvc.perform(post("/api/rad/5/preuzmi").with(student())).andExpect(status().isConflict());
         verify(radovi, never()).save(any());
@@ -410,6 +416,7 @@ class DopuneApiHttpTest {
     @ParameterizedTest
     @CsvSource({"09:59:59,409", "10:00:00,201", "10:30:00,201", "10:30:01,409", "11:59:59,409", "12:00:00,409"})
     void preuzimanjeSamoUPrvihTridesetMinutaTermina(String vreme, int status) throws Exception {
+        objavljeniZadatak();
         vreme(vreme);
         when(prijave.existsByStudent_IdAndGrupa_Id(7L, 3L)).thenReturn(true);
         mvc.perform(post("/api/rad/5/preuzmi").with(student())).andExpect(status().is(status));
@@ -617,6 +624,56 @@ class DopuneApiHttpTest {
         nalog.setPasswordHash(encoder.encode("stara123")); student.setPasswordHash(nalog.getPasswordHash());
         when(korisnici.findByEmail("student@raf.rs")).thenReturn(Optional.of(nalog));
         return nalog;
+    }
+
+    @Test
+    void profesorPreuzimaZajednickiZipUzSveFiltere() throws Exception {
+        rad.setStatus(StatusRada.OCENJEN);
+        rad.setGithubRepo("test/rok"); rad.setGithubFolder("Jun-2031/RS/G1/student");
+        rad.setGithubCommit("b".repeat(40));
+        when(radovi.findByPredmetIdAndFilters(4L, StatusRada.OCENJEN, 3L, 6L, 5L)).thenReturn(List.of(rad));
+        var izvori = List.of(new GitHubService.ArchiveSource(8L, "test/rok", "b".repeat(40), "Jun-2031/RS/G1/student"));
+        byte[] arhiva = {80,75,3,4};
+        when(github.archiveMany(izvori)).thenReturn(arhiva);
+
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(profesor())
+                        .param("status", "OCENJEN").param("grupaId", "3").param("terminId", "6").param("zadatakId", "5"))
+                .andExpect(status().isOk()).andExpect(content().contentType("application/zip"))
+                .andExpect(header().string("Content-Disposition", "attachment; filename=\"resenja-predmeta-4.zip\""))
+                .andExpect(content().bytes(arhiva));
+
+        verify(github).archiveMany(izvori);
+    }
+
+    @Test
+    void zajednickiZipOdbijaAnonimnogStudentaITudjegProfesora() throws Exception {
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip")).andExpect(status().isUnauthorized());
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(student())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(tudjiProfesor())).andExpect(status().isForbidden());
+        verifyNoInteractions(radovi, github);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"PREUZET", "NEPOSTOJI"})
+    void zajednickiZipOdbijaNeispravanStatusBezGitHubPoziva(String statusRada) throws Exception {
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(profesor()).param("status", statusRada))
+                .andExpect(status().isBadRequest());
+        verifyNoInteractions(radovi, github);
+    }
+
+    @Test
+    void zajednickiZipBezRezultataVraca404ANepotpunRad409() throws Exception {
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(profesor())).andExpect(status().isNotFound());
+        rad.setStatus(StatusRada.PREDAT);
+        when(radovi.findByPredmetIdAndFilters(4L, null, null, null, null)).thenReturn(List.of(rad));
+        mvc.perform(get("/api/rad/predmet/4/resenja.zip").with(profesor())).andExpect(status().isConflict());
+        verifyNoInteractions(github);
+    }
+
+    private void objavljeniZadatak() {
+        zadatak.setGithubRepo("test/rok");
+        zadatak.setGithubFolder("Jun-2031/RS/G1/zadatak");
+        zadatak.setGithubCommit("a".repeat(40));
     }
 
     private void vreme(String time) {

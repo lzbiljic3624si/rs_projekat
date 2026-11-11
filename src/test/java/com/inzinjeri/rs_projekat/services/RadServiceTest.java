@@ -160,6 +160,9 @@ class RadServiceTest {
     void preuzmiCuvaRadZaPrijavljenogStudentaBezOdobrenja() {
         Student student = student();
         Zadatak zadatak = zadatak();
+        zadatak.setGithubRepo("prof/rok");
+        zadatak.setGithubFolder("Jun-2031/Razvoj-softvera/G1/zadatak");
+        zadatak.setGithubCommit("a".repeat(40));
         when(studenti.pronadjiPoEmailu(auth.getName())).thenReturn(Optional.of(student));
         when(zadaci.findByIdZaIzmenu(5L)).thenReturn(Optional.of(zadatak));
         when(prijave.existsByStudent_IdAndGrupa_Id(2L, 3L)).thenReturn(true);
@@ -175,7 +178,11 @@ class RadServiceTest {
         verify(radovi).save(sacuvanRad.capture());
         assertSame(student, sacuvanRad.getValue().getStudent());
         assertSame(zadatak, sacuvanRad.getValue().getZadatak());
-        assertEquals("student_razvoj-softvera_150630", sacuvanRad.getValue().getRepoPutanjaResenja());
+        assertEquals("prof/rok", sacuvanRad.getValue().getGithubRepo());
+        assertEquals("Jun-2031/Razvoj-softvera/G1/student", sacuvanRad.getValue().getGithubFolder());
+        assertEquals("a".repeat(40), sacuvanRad.getValue().getIzvorniCommit());
+        assertNull(sacuvanRad.getValue().getRepoPutanjaResenja());
+        assertNull(sacuvanRad.getValue().getGithubCommit());
         assertEquals(StatusRada.PREUZET, sacuvanRad.getValue().getStatus());
         assertNotNull(sacuvanRad.getValue().getVremePreuzimanja());
         assertNull(sacuvanRad.getValue().getVremePredaje());

@@ -39,8 +39,8 @@ import static org.junit.jupiter.api.Assertions.*;
 @Import({RadService.class, ZadatakService.class, GitHubWorkflowIntegrationTest.TestConfig.class})
 class GitHubWorkflowIntegrationTest {
     private static final String REPO = "owner/rok";
-    private static final String STARTER = "Programiranje/Grupa1/zadatak";
-    private static final String SOLUTION = "Programiranje/Grupa1/pera";
+    private static final String STARTER = "Jun-2031/Programiranje/Grupa1/zadatak";
+    private static final String SOLUTION = "Jun-2031/Programiranje/Grupa1/pera";
     private static final Snapshot EMPTY = new Snapshot(sha("0"), sha("a"), null, null, null, null, null);
     private static final Snapshot SOURCE = new Snapshot(sha("1"), sha("b"), sha("04"), sha("07"), sha("10"), sha("20"), "Pocetni zadatak");
     private static final Snapshot SUBMITTED = new Snapshot(sha("2"), sha("c"), sha("05"), sha("08"), sha("11"), sha("21"), "Studentsko resenje");
@@ -116,6 +116,14 @@ class GitHubWorkflowIntegrationTest {
             assertArrayEquals(bytes(SOURCE.text()), zip.readAllBytes());
             assertNull(zip.getNextEntry());
         }
+        repo(); commit(SUBMITTED); folderPath(SUBMITTED); files(SUBMITTED); blob(SUBMITTED);
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(
+                radovi.arhivaPredmeta(grupa.getTermin().getPredmet().getId(), StatusRada.PREDAT,
+                        grupa.getId(), grupa.getTermin().getId(), zadatakId, profesor)))) {
+            assertEquals(SOLUTION + "/A.txt", Objects.requireNonNull(zip.getNextEntry()).getName());
+            assertArrayEquals(bytes(SUBMITTED.text()), zip.readAllBytes());
+            assertNull(zip.getNextEntry());
+        }
         Rad sacuvan = radRepository.findById(radId).orElseThrow();
         assertEquals(SUBMITTED.commit(), sacuvan.getGithubCommit());
         assertEquals(SOURCE.commit(), sacuvan.getIzvorniCommit());
@@ -176,7 +184,8 @@ class GitHubWorkflowIntegrationTest {
     private void head(String sha) { fake.expect("GET", "/git/ref/heads/main", Map.of("object", Map.of("sha", sha))); }
     private void commit(Snapshot s) { fake.expect("GET", "/git/commits/" + s.commit(), Map.of("tree", Map.of("sha", s.root()))); }
     private void folderPath(Snapshot s) {
-        tree(s.root(), List.of(directory("Programiranje", s.subject())));
+        tree(s.root(), List.of(directory("Jun-2031", sha("ee"))));
+        tree(sha("ee"), List.of(directory("Programiranje", s.subject())));
         tree(s.subject(), List.of(directory("Grupa1", s.group())));
         List<Map<String, Object>> group = new ArrayList<>(List.of(directory("zadatak", SOURCE.folder())));
         if (s != SOURCE) group.add(directory("pera", s.folder()));

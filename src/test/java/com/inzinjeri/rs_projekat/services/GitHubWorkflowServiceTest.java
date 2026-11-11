@@ -8,6 +8,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.NullAndEmptySource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
@@ -49,7 +51,8 @@ class GitHubWorkflowServiceTest {
     @BeforeEach
     void podaci() {
         Predmet predmet = new Predmet(); predmet.setId(4L); predmet.setNaziv("Programiranje");
-        Rok rok = new Rok(); rok.setId(1L); rok.setRepoPutanja("https://github.com/prof/novembar");
+        Rok rok = new Rok(); rok.setId(1L); rok.setNaziv("Novembar"); rok.setSkolskaGodina(2030);
+        rok.setRepoPutanja("https://github.com/prof/novembar");
         Termin termin = new Termin(); termin.setId(2L); termin.setPredmet(predmet); termin.setRok(rok);
         termin.setDatum(LocalDate.of(2030,6,15)); termin.setVremePocetak(LocalTime.of(10,0)); termin.setVremeKraj(LocalTime.NOON);
         grupa.setId(3L); grupa.setNaziv("Grupa1"); grupa.setTermin(termin);
@@ -246,10 +249,142 @@ class GitHubWorkflowServiceTest {
     @Test
     void kolizijaRezervnogFolderaGrupeDobijaSledeciSlobodanNaziv() {
         zadatak.setGithubFolder(null); zadatak.setGithubCommit(null); zadatak.setGithubRepo(null);
-        when(zadaci.pronadjiFolderZaIzmenu("prof/novembar","Programiranje/Grupa1/zadatak",5L)).thenReturn(List.of(new Zadatak()));
-        when(zadaci.pronadjiFolderZaIzmenu("prof/novembar","Programiranje/Grupa1-3/zadatak",5L)).thenReturn(List.of(new Zadatak()));
+        when(zadaci.pronadjiFolderZaIzmenu("prof/novembar","Novembar-2030/Programiranje/Grupa1/zadatak",5L)).thenReturn(List.of(new Zadatak()));
+        when(zadaci.pronadjiFolderZaIzmenu("prof/novembar","Novembar-2030/Programiranje/Grupa1-3/zadatak",5L)).thenReturn(List.of(new Zadatak()));
         Zadatak odgovor = zadatakService.objavi("Z1",3L,List.of(file),List.of("A.java"),profesorAuth);
-        assertEquals("Programiranje/Grupa1-3-2/zadatak",odgovor.getGithubFolder());
+        assertEquals("Novembar-2030/Programiranje/Grupa1-3-2/zadatak",odgovor.getGithubFolder());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"Januar,2031", "Februar,2031", "Mart,2031", "April,2031", "Maj,2031", "Jun,2031",
+            "Jul,2031", "Avgust,2031", "Septembar,2031", "Oktobar,2031", "Novembar,2030", "Decembar,2030",
+            "'  jUn 2  ',2031"})
+    void novaObjavaOrganizujeFolderPoRokuIKalendarskojGodini(String nazivRoka, int godina) {
+        when(zadaci.pronadjiPoGrupi(3L)).thenReturn(Optional.empty());
+        grupa.getTermin().getRok().setNaziv(nazivRoka);
+        String folder = nazivRoka.trim().replace(' ', '-') + "-" + godina + "/Programiranje/Grupa1/zadatak";
+
+        Zadatak objavljen = zadatakService.objavi("Z1",3L,List.of(file),List.of("A.java"),profesorAuth);
+
+        assertSame(grupa, objavljen.getGrupa());
+        assertEquals(folder, objavljen.getGithubFolder());
+        assertEquals(submitted, objavljen.getGithubCommit());
+        assertEquals("https://github.com/prof/novembar/tree/" + submitted + "/" + folder, objavljen.getRepoPutanja());
+        verify(github).publish(eq("prof/novembar"), eq(folder), anyList(), isNull());
+        verify(zadaci).pronadjiFolderZaIzmenu("prof/novembar", folder, -1L);
+    }
+
+    @ParameterizedTest
+    @NullAndEmptySource
+    @ValueSource(strings = {"   ", "Ispitni rok"})
+    void neispravanNazivRokaOdbijaObjavuPreGitHubUpisa(String naziv) {
+        zadatak.setGithubFolder(null);
+        grupa.getTermin().getRok().setNaziv(naziv);
+
+        assertThrows(ConflictException.class,
+                () -> zadatakService.objavi("Z1",3L,List.of(file),List.of("A.java"),profesorAuth));
+
+        verifyNoInteractions(github);
+        verify(zadaci, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void nedostajuciRokIliSkolskaGodinaOdbijajuNovuObjavu(boolean nemaRoka) {
+        zadatak.setGithubFolder(null);
+        if (nemaRoka) grupa.getTermin().setRok(null);
+        else grupa.getTermin().getRok().setSkolskaGodina(null);
+
+        assertThrows(ConflictException.class,
+                () -> zadatakService.objavi("Z1",3L,List.of(file),List.of("A.java"),profesorAuth));
+
+        verifyNoInteractions(github);
+        verify(zadaci, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"repo", "folder", "commit"})
+    void obaNacinaPocetkaOdbijajuZadatakBezObjavljenihGitHubPodataka(String nedostaje) {
+        switch (nedostaje) {
+            case "repo" -> zadatak.setGithubRepo(null);
+            case "folder" -> zadatak.setGithubFolder(null);
+            case "commit" -> zadatak.setGithubCommit(null);
+        }
+
+        assertThrows(ConflictException.class, () -> radService.preuzmi(5L, studentAuth));
+        assertThrows(ConflictException.class, () -> radService.zapocni(5L, studentAuth));
+
+        verify(radovi, never()).save(any());
+        verifyNoInteractions(github);
+    }
+
+    @Test
+    void zajednickaArhivaProsledjujeSveFiltereISortiraneSacuvaneVerzije() {
+        rad.setStatus(StatusRada.PREDAT); rad.setGithubCommit(submitted);
+        Rad ocenjen = new Rad(); ocenjen.setId(6L); ocenjen.setStatus(StatusRada.OCENJEN);
+        ocenjen.setGithubRepo("prof/drugi-rok"); ocenjen.setGithubFolder("Jun-2031/Programiranje/Grupa2/ana");
+        ocenjen.setGithubCommit(source);
+        Rad preuzet = new Rad(); preuzet.setId(9L); preuzet.setStatus(StatusRada.PREUZET);
+        when(radovi.findByPredmetIdAndFilters(4L, null, 3L, 2L, 5L)).thenReturn(List.of(rad, preuzet, ocenjen));
+        List<GitHubService.ArchiveSource> izvori = List.of(
+                new GitHubService.ArchiveSource(6L, ocenjen.getGithubRepo(), source, ocenjen.getGithubFolder()),
+                new GitHubService.ArchiveSource(8L, rad.getGithubRepo(), submitted, rad.getGithubFolder()));
+        byte[] zip = {1,2,3};
+        when(github.archiveMany(izvori)).thenReturn(zip);
+
+        assertArrayEquals(zip, radService.arhivaPredmeta(4L, null, 3L, 2L, 5L, profesorAuth));
+
+        verify(radovi).findByPredmetIdAndFilters(4L, null, 3L, 2L, 5L);
+        verify(github).archiveMany(izvori);
+        verify(github, never()).head(anyString());
+        verify(radovi, never()).save(any());
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = StatusRada.class, names = {"PREDAT", "OCENJEN"})
+    void arhivaPrihvataObaZavrsenaStatusa(StatusRada status) {
+        rad.setStatus(status); rad.setGithubCommit(submitted);
+        when(radovi.findByPredmetIdAndFilters(4L, status, null, null, null)).thenReturn(List.of(rad));
+        when(github.archiveMany(anyList())).thenReturn(new byte[]{1});
+
+        assertArrayEquals(new byte[]{1}, radService.arhivaPredmeta(4L, status, null, null, null, profesorAuth));
+        verify(radovi).findByPredmetIdAndFilters(4L, status, null, null, null);
+    }
+
+    @Test
+    void arhivaOdbijaTudjegProfesoraIPreuzeteRadovePreUpita() {
+        assertThrows(ForbiddenException.class,
+                () -> radService.arhivaPredmeta(4L, null, null, null, null, auth("tudji@raf.rs","PROFESOR")));
+        assertThrows(BadRequestException.class,
+                () -> radService.arhivaPredmeta(4L, StatusRada.PREUZET, null, null, null, profesorAuth));
+        verifyNoInteractions(radovi, github);
+    }
+
+    @ParameterizedTest
+    @ValueSource(booleans = {false, true})
+    void nemaArhiveAkoFilteriNeVratiZavrseneRadove(boolean samoPreuzet) {
+        when(radovi.findByPredmetIdAndFilters(4L, null, null, null, null))
+                .thenReturn(samoPreuzet ? List.of(rad) : List.of());
+
+        assertThrows(ResourceNotFoundException.class,
+                () -> radService.arhivaPredmeta(4L, null, null, null, null, profesorAuth));
+        verifyNoInteractions(github);
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"repo", "folder", "commit"})
+    void arhivaOdbijaRadBezSacuvaneGitHubVerzije(String nedostaje) {
+        rad.setStatus(StatusRada.PREDAT); rad.setGithubCommit(submitted);
+        switch (nedostaje) {
+            case "repo" -> rad.setGithubRepo(null);
+            case "folder" -> rad.setGithubFolder(null);
+            case "commit" -> rad.setGithubCommit(null);
+        }
+        when(radovi.findByPredmetIdAndFilters(4L, null, null, null, null)).thenReturn(List.of(rad));
+
+        assertThrows(ConflictException.class,
+                () -> radService.arhivaPredmeta(4L, null, null, null, null, profesorAuth));
+        verifyNoInteractions(github);
     }
 
     @Test

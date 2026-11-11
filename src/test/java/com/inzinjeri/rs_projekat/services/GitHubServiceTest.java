@@ -1,10 +1,16 @@
 package com.inzinjeri.rs_projekat.services;
 
 import com.inzinjeri.rs_projekat.exceptions.GitHubException;
+import com.inzinjeri.rs_projekat.exceptions.BadRequestException;
+import com.inzinjeri.rs_projekat.utils.GitHubFiles;
 import com.sun.net.httpserver.HttpServer;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.Arguments;
 import org.springframework.web.client.RestClient;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -13,11 +19,14 @@ import java.net.InetSocketAddress;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.List;
 import java.util.Queue;
 import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.zip.ZipInputStream;
+import java.util.stream.IntStream;
+import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -331,6 +340,159 @@ class GitHubServiceTest {
         assertTrue(calls.stream().noneMatch(c -> c.method.equals("POST")));
     }
 
+    @Test
+    void archiveManyKeepsBothPinnedVersionsFullPathsAndBinaryBytes() throws Exception {
+        repo(true);
+        folderAt(HEAD, ROOT, FOLDER);
+        recursive(FOLDER, false, entry("src", "tree", "040000", SUBJECT, 0) + ","
+                + entry("src/A.java", "blob", "100644", BLOB, 3));
+        blob(new byte[]{0, (byte)255, (byte)128});
+        folderAt(NEXT, ROOT, FOLDER, "other");
+        recursive(FOLDER, false, entry("src/A.java", "blob", "100644", BLOB, 1));
+        blob(new byte[]{'x'});
+
+        byte[] archive = service.archiveMany(List.of(
+                archiveSource(1L, HEAD, "student"), archiveSource(2L, NEXT, "other")));
+
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(archive))) {
+            var first = zip.getNextEntry();
+            assertEquals("Subject/Group/student/src/A.java", first.getName());
+            assertEquals(0, first.getTime());
+            assertArrayEquals(new byte[]{0, (byte)255, (byte)128}, zip.readAllBytes());
+            assertEquals("Subject/Group/other/src/A.java", zip.getNextEntry().getName());
+            assertArrayEquals(new byte[]{'x'}, zip.readAllBytes());
+            assertNull(zip.getNextEntry());
+        }
+        assertEquals(1, calls.stream().filter(c -> c.path.equals("/repos/owner/repo")).count());
+        assertTrue(calls.stream().allMatch(c -> c.method.equals("GET")));
+        assertTrue(calls.stream().noneMatch(c -> c.path.contains("/git/ref/")));
+    }
+
+    @ParameterizedTest
+    @MethodSource("invalidArchiveSources")
+    void archiveManyRejectsInvalidSourcesBeforeNetwork(List<GitHubService.ArchiveSource> sources, int status) {
+        assertEquals(status, assertThrows(GitHubException.class, () -> service.archiveMany(sources)).getStatus());
+        assertTrue(calls.isEmpty());
+    }
+
+    static Stream<Arguments> invalidArchiveSources() {
+        return Stream.of(
+                Arguments.of(null, 404), Arguments.of(List.of(), 404),
+                Arguments.of(Collections.singletonList(null), 400),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(null, "owner/repo", HEAD, "a")), 400),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(0L, "owner/repo", HEAD, "a")), 400),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(-1L, "owner/repo", HEAD, "a")), 400),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, null, HEAD, "a")), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, " ", HEAD, "a")), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "owner/repo", null, "a")), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "owner/repo", " ", "a")), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "owner/repo", HEAD, null)), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "owner/repo", HEAD, " ")), 409),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "owner/repo", "main", "a")), 502),
+                Arguments.of(List.of(new GitHubService.ArchiveSource(1L, "other/repo", HEAD, "a")), 400));
+    }
+
+    @Test
+    void archiveManyRejectsDuplicateWorkBeforeReadingFiles() {
+        repo(true);
+        var source = archiveSource(1L, HEAD, "student");
+
+        assertEquals(400, assertThrows(GitHubException.class,
+                () -> service.archiveMany(List.of(source, source))).getStatus());
+        assertEquals(1, calls.size());
+    }
+
+    @Test
+    void archiveManyRejectsUnsafeFolderBeforeNetwork() {
+        assertThrows(BadRequestException.class,
+                () -> service.archiveMany(List.of(archiveSource(1L, HEAD, "../secret"))));
+        assertTrue(calls.isEmpty());
+    }
+
+    @Test
+    void archiveManyRejectsPublicRepositoriesBeforeReadingFiles() {
+        repo(false);
+        assertEquals(409, assertThrows(GitHubException.class,
+                () -> service.archiveMany(List.of(archiveSource(1L, HEAD, "student")))).getStatus());
+        assertEquals(1, calls.size());
+    }
+
+    @Test
+    void archiveManyRejectsEmptyWorkInsteadOfReturningPartialArchive() {
+        repo(true);
+        folderAt(HEAD, ROOT, FOLDER);
+        recursive(FOLDER, false, entry("src", "tree", "040000", SUBJECT, 0));
+
+        assertEquals(409, assertThrows(GitHubException.class,
+                () -> service.archiveMany(List.of(archiveSource(1L, HEAD, "student")))).getStatus());
+    }
+
+    @Test
+    void archiveManyRejectsOverlappingZipPathsBeforeReadingSecondBlob() {
+        repo(true);
+        folderAt(HEAD, ROOT, FOLDER);
+        recursive(FOLDER, false, entry("A.java", "blob", "100644", BLOB, 1));
+        blob(new byte[]{'x'});
+        folderAt(NEXT, ROOT, FOLDER);
+        recursive(FOLDER, false, entry("a.java", "blob", "100644", BLOB, 1));
+
+        assertEquals(409, assertThrows(GitHubException.class,
+                () -> service.archiveMany(List.of(archiveSource(1L, HEAD, "student"),
+                        archiveSource(2L, NEXT, "student")))).getStatus());
+        assertEquals(1, calls.stream().filter(c -> c.path.contains("/git/blobs/")).count());
+    }
+
+    @ParameterizedTest
+    @CsvSource({"200,true", "201,false"})
+    void archiveManyEnforcesFileCountAcrossWorks(int count, boolean allowed) throws Exception {
+        repo(true);
+        folderAt(HEAD, ROOT, FOLDER);
+        recursive(FOLDER, false, String.join(",", IntStream.range(0, 100)
+                .mapToObj(i -> entry("a" + i, "blob", "100644", BLOB, 0)).toList()));
+        for (int i = 0; i < 100; i++) blob(new byte[0]);
+        folderAt(NEXT, ROOT, FOLDER, "other");
+        recursive(FOLDER, false, String.join(",", IntStream.range(100, count)
+                .mapToObj(i -> entry("a" + i, "blob", "100644", BLOB, 0)).toList()));
+        for (int i = 100; i < Math.min(count, GitHubFiles.MAX_FILES); i++) blob(new byte[0]);
+        var sources = List.of(archiveSource(1L, HEAD, "student"), archiveSource(2L, NEXT, "other"));
+
+        if (allowed) {
+            try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(service.archiveMany(sources)))) {
+                int files = 0;
+                while (zip.getNextEntry() != null) files++;
+                assertEquals(count, files);
+            }
+        } else {
+            assertEquals(413, assertThrows(GitHubException.class, () -> service.archiveMany(sources)).getStatus());
+        }
+        assertEquals(200, calls.stream().filter(c -> c.path.contains("/git/blobs/")).count());
+    }
+
+    @Test
+    void archiveManyEnforcesTotalBytesAcrossWorksBeforeReadingExcessBlob() {
+        repo(true);
+        folderAt(HEAD, ROOT, FOLDER);
+        recursive(FOLDER, false, String.join(",", IntStream.range(0, 5)
+                .mapToObj(i -> entry("file" + i, "blob", "100644", BLOB, GitHubFiles.MAX_FILE_BYTES)).toList()));
+        byte[] content = new byte[GitHubFiles.MAX_FILE_BYTES];
+        for (int i = 0; i < 5; i++) blob(content);
+        folderAt(NEXT, ROOT, FOLDER, "other");
+        recursive(FOLDER, false, entry("extra", "blob", "100644", BLOB, 1));
+
+        assertEquals(413, assertThrows(GitHubException.class, () -> service.archiveMany(List.of(
+                archiveSource(1L, HEAD, "student"), archiveSource(2L, NEXT, "other")))).getStatus());
+        assertEquals(5, calls.stream().filter(c -> c.path.contains("/git/blobs/")).count());
+    }
+
+    private static GitHubService.ArchiveSource archiveSource(long id, String commit, String student) {
+        return new GitHubService.ArchiveSource(id, "owner/repo", commit, "Subject/Group/" + student);
+    }
+
+    private void blob(byte[] content) {
+        expect("GET", "git/blobs/" + BLOB, 200, "{\"encoding\":\"base64\",\"size\":" + content.length
+                + ",\"content\":\"" + Base64.getEncoder().encodeToString(content) + "\"}");
+    }
+
     private void repo(boolean privateRepo) {
         expect("GET", "", 200, "{\"private\":" + privateRepo + ",\"default_branch\":\"main\"}");
     }
@@ -345,10 +507,14 @@ class GitHubServiceTest {
     }
 
     private void folderAt(String commit, String root, String folder) {
+        folderAt(commit, root, folder, "student");
+    }
+
+    private void folderAt(String commit, String root, String folder, String student) {
         expect("GET", "git/commits/" + commit, 200, "{\"tree\":{\"sha\":\"" + root + "\"}}");
         expect("GET", "git/trees/" + root, 200, "{\"truncated\":false,\"tree\":[" + entry("Subject", "tree", "040000", SUBJECT, 0) + "]}");
         expect("GET", "git/trees/" + SUBJECT, 200, "{\"truncated\":false,\"tree\":[" + entry("Group", "tree", "040000", GROUP, 0) + "]}");
-        expect("GET", "git/trees/" + GROUP, 200, "{\"truncated\":false,\"tree\":[" + entry("student", "tree", "040000", folder, 0) + "]}");
+        expect("GET", "git/trees/" + GROUP, 200, "{\"truncated\":false,\"tree\":[" + entry(student, "tree", "040000", folder, 0) + "]}");
     }
 
     private void recursive(String folder, boolean truncated, String entries) {
