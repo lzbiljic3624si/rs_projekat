@@ -71,23 +71,22 @@ public class Seeder implements CommandLineRunner {
             predmetList.add(predmetRepository.save(p));
         }
 
-        // skolska 2025 = 2025/26, pa su svi rokovi u 2026.
-        String[] rokovi = {"Januarski", "Februarski", "Junski", "Septembarski", "Oktobarski"};
-        int[] meseciRokova = {1, 2, 6, 9, 10};
+        String[] rokovi = {"Januarski", "Februarski", "Junski", "Septembarski", "Novembarski"};
+        int[] meseciRokova = {1, 2, 6, 9, 11};
         List<Rok> rokList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Rok r = new Rok();
             r.setNaziv(rokovi[i - 1]);
-            r.setSkolskaGodina(2025);
+            r.setSkolskaGodina(i == 5 ? 2026 : 2025);
             rokList.add(rokRepository.save(r));
         }
 
         List<Termin> terminList = new ArrayList<>();
         for (int i = 1; i <= 5; i++) {
             Termin t = new Termin();
-            t.setDatum(LocalDate.of(2026, meseciRokova[i - 1], 10 + i));
-            t.setVremePocetak(LocalTime.of(8 + i, 0));
-            t.setVremeKraj(LocalTime.of(10 + i, 0));
+            t.setDatum(LocalDate.of(2026, meseciRokova[i - 1], i == 5 ? 14 : 10 + i));
+            t.setVremePocetak(LocalTime.of(i == 5 ? 12 : 8 + i, 0));
+            t.setVremeKraj(LocalTime.of(i == 5 ? 14 : 10 + i, 0));
             t.setUcionica(ucionicaList.get(i - 1));
             t.setPredmet(predmetList.get(i - 1));
             t.setRok(rokList.get(i - 1));
@@ -102,19 +101,21 @@ public class Seeder implements CommandLineRunner {
             grupaList.add(grupaRepository.save(g));
         }
 
-        // namerno imena sa dvoslovnim inicijalima (dj, lj, nj) da se vidi ParseUtils.profesorEmail
-        String[][] profesori = {
-                {"Đorđe", "Petrović"},     // djpetrovic@raf.rs
-                {"Ljiljana", "Marković"},  // ljmarkovic@raf.rs
-                {"Njegoš", "Kovačević"},   // njkovacevic@raf.rs
-                {"Milica", "Jovanović"},   // mjovanovic@raf.rs
-                {"Dragan", "Stojanović"},  // dstojanovic@raf.rs
+        // {ime, prezime, indeks predmeta u predmetList}
+        Object[][] profesori = {
+                {"Đorđe", "Petrović", 0},     // djpetrovic@raf.rs
+                {"Ljiljana", "Marković", 1},  // ljmarkovic@raf.rs
+                {"Njegoš", "Kovačević", 2},   // njkovacevic@raf.rs
+                {"Milica", "Jovanović", 3},   // mjovanovic@raf.rs
+                {"Dragan", "Stojanović", 4},  // dstojanovic@raf.rs
+                {"Petar", "Stamenic", 4},    // pstamenic@raf.rs
+                {"Mirko", "Miric", 1},       // mmiric@raf.rs
         };
         List<Profesor> profesorList = new ArrayList<>();
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= profesori.length; i++) {
             Profesor p = new Profesor();
-            p.setIme(profesori[i - 1][0]);
-            p.setPrezime(profesori[i - 1][1]);
+            p.setIme((String) profesori[i - 1][0]);
+            p.setPrezime((String) profesori[i - 1][1]);
             p.setEmail(ParseUtils.profesorEmail(p.getIme(), p.getPrezime(), email ->
                     profesorRepository.existsByEmailIgnoreCase(email)
                             || korisnikRepository.existsByEmailIgnoreCase(email)));
@@ -129,9 +130,12 @@ public class Seeder implements CommandLineRunner {
                 {"Luka", "Šarić", "RN", 45, 2024},        // lsaric4524rn@raf.rs
                 {"Jelena", "Živković", "RI", 101, 2024},  // jzivkovic10124ri@raf.rs
                 {"Ljubica", "Popović", "RN", 3, 2022},    // ljpopovic322rn@raf.rs
+                {"Lazar", "Zbiljic", "SI", 36, 2024},    // lzbiljic3624si@raf.rs
+                {"David", "Milovanovic", "SI", 29, 2024}, // dmilovanovic2924si@raf.rs
+                {"Laza", "Lazarevic", "RI", 67, 2024},   // llazarevic6724ri@raf.rs
         };
         List<Student> studentList = new ArrayList<>();
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= studenti.length; i++) {
             Object[] st = studenti[i - 1];
             Student s = new Student();
             s.setIme((String) st[0]);
@@ -147,10 +151,10 @@ public class Seeder implements CommandLineRunner {
         // Kreiranje korisnickih naloga
         napraviKorisnike(studentList, profesorList);
 
-        for (int i = 1; i <= 5; i++) {
+        for (int i = 1; i <= profesori.length; i++) {
             PredajePredmet pp = new PredajePredmet();
             pp.setProfesor(profesorList.get(i - 1));
-            pp.setPredmet(predmetList.get(i - 1));
+            pp.setPredmet(predmetList.get((Integer) profesori[i - 1][2]));
             predajePredmetRepository.save(pp);
         }
 
@@ -158,6 +162,13 @@ public class Seeder implements CommandLineRunner {
             PrijavljenStudent ps = new PrijavljenStudent();
             ps.setStudent(studentList.get(i - 1));
             ps.setGrupa(grupaList.get(i - 1));
+            prijavljenStudentRepository.save(ps);
+        }
+
+        for (Student student : List.of(studentList.get(5), studentList.get(6))) {
+            PrijavljenStudent ps = new PrijavljenStudent();
+            ps.setStudent(student);
+            ps.setGrupa(grupaList.get(4));
             prijavljenStudentRepository.save(ps);
         }
 
